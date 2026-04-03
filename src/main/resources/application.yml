@@ -3,15 +3,10 @@ spring:
     name: DashBoard
 
   datasource:
-    url: jdbc:mysql://${MYSQL_HOST:127.0.0.1}:${MYSQL_PORT:3306}/${MYSQL_DATABASE:dashboard}?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true
-    username: ${MYSQL_USER:root}
-    password: ${MYSQL_PASSWORD:1028}
+    url: jdbc:mysql://127.0.0.1:3306/dashboard?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true
+    username: root
+    password: 1028
     driver-class-name: com.mysql.cj.jdbc.Driver
-  
-  sql:
-    init:
-      mode: always
-      data-locations: classpath:dashboard_widgets_init.sql
 
   jpa:
     hibernate:
@@ -31,7 +26,7 @@ spring:
       max-request-size: 10MB
 
 jwt:
-  secret: ${JWT_SECRET:your-secret-key-that-is-at-least-256-bits-long-for-hs256-algorithm-must-be-very-long-and-secure-key}
+  secret: your-secret-key-that-is-at-least-256-bits-long-for-hs256-algorithm-must-be-very-long-and-secure-key
   access-token-expiration: 3600000
   refresh-token-expiration: 604800000
 
@@ -44,5 +39,5 @@ springdoc:
     path: /api-docs
 
 server:
-  port: ${SERVER_PORT:8080}
+  port: 8080
 
