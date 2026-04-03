@@ -36,7 +36,12 @@ public class AuthController {
     private final AuthService authService;
 
     @PostMapping("/signup")
-    @Operation(summary = "회원가입", description = "새로운 사용자를 등록합니다")
+    @Operation(summary = "회원가입", description = "새로운 사용자를 등록합니다\n\n" +
+            "**테스트 예시:**\n" +
+            "- username: testuser\n" +
+            "- email: test@example.com\n" +
+            "- password: Test123!@# (영문+숫자+특수문자)\n" +
+            "- fullName: 테스트 사용자")
     @ApiResponses({
             @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "201", description = "회원가입 성공"),
             @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "잘못된 요청")
@@ -48,7 +53,10 @@ public class AuthController {
     }
 
     @PostMapping("/login")
-    @Operation(summary = "로그인", description = "사용자 인증 및 JWT 토큰 발급")
+    @Operation(summary = "로그인", description = "사용자 인증 및 JWT 토큰 발급\n\n" +
+            "**관리자 테스트 계정:**\n" +
+            "- username: admin\n" +
+            "- password: Admin123!")
     @ApiResponses({
             @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "로그인 성공"),
             @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "인증 실패")
