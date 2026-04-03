@@ -47,6 +47,18 @@ public class SwaggerConfig {
         return new Info()
                 .title("DashBoard API")
                 .description("대시보드 API\n\n" +
+                        "## 🔐 테스트 계정\n\n" +
+                        "프론트엔드 테스트용 계정 정보입니다. 개발 단계에서 자유롭게 사용하세요.\n\n" +
+                        "### 관리자 계정 (ADMIN)\n" +
+                        "- **Username**: `admin`\n" +
+                        "- **Password**: `Admin123!`\n" +
+                        "- **권한**: 모든 사용자 관리 및 API 접근 가능\n" +
+                        "- **용도**: 사용자 관리, 역할 변경, 계정 활성화/비활성화\n\n" +
+                        "### 일반 사용자 계정 예시 (USER)\n" +
+                        "회원가입 시 자동으로 일반 사용자로 생성됩니다.\n" +
+                        "- **Username**: 3자 이상 50자 이하\n" +
+                        "- **Password**: 영문 + 숫자 + 특수문자 포함 (8자 이상)\n" +
+                        "- **예시 비밀번호**: `Test123!@#`, `UserPass456!`\n\n" +
                         "## 주요 기능\n\n" +
                         "### 인증 (Authentication)\n" +
                         "- 회원가입: 새로운 계정 생성\n" +
