@@ -8,11 +8,6 @@ group = 'com.festapp'
 version = '0.0.1-SNAPSHOT'
 description = 'DashBoar'
 
-java {
-    toolchain {
-        languageVersion = JavaLanguageVersion.of(17)
-    }
-}
 
 repositories {
     mavenCentral()
