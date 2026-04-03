@@ -8,6 +8,11 @@ spring:
     password: ${MYSQL_PASSWORD:1028}
     driver-class-name: com.mysql.cj.jdbc.Driver
   
+  sql:
+    init:
+      mode: always
+      data-locations: classpath:dashboard_widgets_init.sql
+
   jpa:
     hibernate:
       ddl-auto: update
