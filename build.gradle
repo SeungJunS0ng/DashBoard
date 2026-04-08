@@ -19,9 +19,15 @@ dependencies {
     implementation 'org.springframework.boot:spring-boot-starter-security'
     implementation 'org.springframework.boot:spring-boot-starter-validation'
 
+    implementation 'org.springframework.boot:spring-boot-starter-amqp'
     implementation 'org.springframework.boot:spring-boot-starter-integration'
     implementation 'org.springframework.integration:spring-integration-mqtt'
+    // 웹소켓
     implementation 'org.springframework.boot:spring-boot-starter-websocket'
+    //레디스
+    implementation 'org.springframework.boot:spring-boot-starter-data-redis'
+    //카프카
+    implementation 'org.springframework.kafka:spring-kafka'
 
     // Jakarta XML Binding (JAXB) - Hibernate ORM에서 필요
     implementation 'jakarta.xml.bind:jakarta.xml.bind-api:4.0.0'
