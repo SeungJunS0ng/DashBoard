@@ -4,6 +4,7 @@ package com.festapp.dashboard.dashboard.widget.service;
 import com.festapp.dashboard.dashboard.widget.dto.WidgetLayoutUpdateDto;
 import com.festapp.dashboard.dashboard.widget.dto.WidgetRequestDto;
 import com.festapp.dashboard.dashboard.widget.dto.WidgetResponseDto;
+import com.festapp.dashboard.dashboard.widget.dto.WidgetWebSocketMessage;
 import com.festapp.dashboard.dashboard.widget.entity.DashboardWidget;
 import com.festapp.dashboard.dashboard.widget.exception.WidgetNotFoundException;
 import com.festapp.dashboard.dashboard.widget.repository.DashboardWidgetRepository;
@@ -13,8 +14,13 @@ import com.festapp.dashboard.common.exception.ResourceNotFoundException;
 import com.festapp.dashboard.common.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
+import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 
 @Slf4j
@@ -25,6 +31,7 @@ public class DashboardWidgetService {
 
     private final DashboardWidgetRepository widgetRepository;
     private final UserRepository userRepository;
+    private final SimpMessagingTemplate messagingTemplate;
 
     /**
      * 공통 메서드: userId로 User 엔티티 조회
@@ -70,20 +77,28 @@ public class DashboardWidgetService {
                 .build();
 
         DashboardWidget savedWidget = widgetRepository.save(widget);
+        WidgetResponseDto response = WidgetResponseDto.fromEntity(savedWidget);
+
         log.info("Widget created successfully with id: {} for user: {}", savedWidget.getId(), userId);
-        return WidgetResponseDto.fromEntity(savedWidget);
+
+        // WebSocket 메시지 브로드캐스트
+        broadcastWidgetUpdate(WidgetWebSocketMessage.MessageType.WIDGET_CREATED, response, userId);
+
+        return response;
     }
 
+    @Cacheable(value = "widgets", key = "#userId")
     public List<WidgetResponseDto> getMyWidgets(Long userId) {
-        log.debug("Fetching all widgets for user: {}", userId);
+        log.debug("Cache MISS - Fetching all widgets for user: {}", userId);
         return widgetRepository.findByUserUserIdOrderByIdAsc(userId)
                 .stream()
                 .map(WidgetResponseDto::fromEntity)
                 .toList();
     }
 
+    @Cacheable(value = "widgetsByEquipment", key = "#userId + ':' + #equipmentId")
     public List<WidgetResponseDto> getMyWidgetsByEquipment(Long userId, String equipmentId) {
-        log.debug("Fetching widgets for user: {} with equipmentId: {}", userId, equipmentId);
+        log.debug("Cache MISS - Fetching widgets for user: {} with equipmentId: {}", userId, equipmentId);
         return widgetRepository.findByUserUserIdAndEquipmentIdOrderByIdAsc(userId, equipmentId)
                 .stream()
                 .map(WidgetResponseDto::fromEntity)
@@ -96,9 +111,12 @@ public class DashboardWidgetService {
         return WidgetResponseDto.fromEntity(widget);
     }
 
+    @CacheEvict(value = "widgets", key = "#userId")
     public WidgetResponseDto updateWidget(Long userId, Long widgetId, WidgetRequestDto dto) {
         log.info("Updating widget with id: {} for user: {}", widgetId, userId);
         DashboardWidget widget = getWidgetOrThrow(widgetId, userId);
+
+        String oldEquipmentId = widget.getEquipmentId();
 
         widget.setEquipmentId(dto.getEquipmentId());
         widget.setWidgetType(dto.getWidgetType());
@@ -114,17 +132,46 @@ public class DashboardWidgetService {
         widget.setConfigJson(dto.getConfigJson());
 
         DashboardWidget updatedWidget = widgetRepository.save(widget);
+        WidgetResponseDto response = WidgetResponseDto.fromEntity(updatedWidget);
+
         log.info("Widget updated successfully with id: {} for user: {}", widgetId, userId);
-        return WidgetResponseDto.fromEntity(updatedWidget);
+
+        // WebSocket 메시지 브로드캐스트
+        broadcastWidgetUpdate(WidgetWebSocketMessage.MessageType.WIDGET_UPDATED, response, userId);
+
+        return response;
     }
 
+    @CacheEvict(value = "widgets", key = "#userId")
     public void deleteWidget(Long userId, Long widgetId) {
         log.info("Deleting widget with id: {} for user: {}", widgetId, userId);
         DashboardWidget widget = getWidgetOrThrow(widgetId, userId);
+
+        String equipmentId = widget.getEquipmentId();
+        Long deletedWidgetId = widget.getId();
+
         widgetRepository.delete(widget);
         log.info("Widget deleted successfully with id: {} for user: {}", widgetId, userId);
+
+        // WebSocket 메시지 브로드캐스트
+        WidgetWebSocketMessage wsMessage = WidgetWebSocketMessage.builder()
+                .messageType(WidgetWebSocketMessage.MessageType.WIDGET_DELETED)
+                .widgetId(deletedWidgetId)
+                .userId(userId)
+                .timestamp(LocalDateTime.now())
+                .build();
+
+        messagingTemplate.convertAndSend(
+            "/topic/user/" + userId + "/widgets",
+            wsMessage
+        );
+        messagingTemplate.convertAndSend(
+            "/topic/equipment/" + equipmentId + "/widgets",
+            wsMessage
+        );
     }
 
+    @CacheEvict(value = "widgets", key = "#userId")
     public List<WidgetResponseDto> updateLayouts(Long userId, WidgetLayoutUpdateDto dto) {
         log.info("Updating layouts for user: {}", userId);
 
@@ -132,6 +179,8 @@ public class DashboardWidgetService {
             log.warn("No layouts provided for user: {}", userId);
             return getMyWidgets(userId);
         }
+
+        List<WidgetResponseDto> updatedWidgets = new ArrayList<>();
 
         for (WidgetLayoutUpdateDto.LayoutItem layout : dto.getLayouts()) {
             DashboardWidget widget = getWidgetOrThrow(layout.getWidgetId(), userId);
@@ -141,11 +190,42 @@ public class DashboardWidgetService {
             widget.setWidth(layout.getWidth());
             widget.setHeight(layout.getHeight());
 
-            widgetRepository.save(widget);
+            DashboardWidget saved = widgetRepository.save(widget);
+            WidgetResponseDto response = WidgetResponseDto.fromEntity(saved);
+            updatedWidgets.add(response);
+
             log.debug("Layout updated for widget id: {}", layout.getWidgetId());
+
+            // 각 위젯별 WebSocket 메시지 브로드캐스트
+            broadcastWidgetUpdate(WidgetWebSocketMessage.MessageType.LAYOUT_UPDATED, response, userId);
         }
 
         log.info("All layouts updated successfully for user: {}", userId);
-        return getMyWidgets(userId);
+        return updatedWidgets;
+    }
+
+    /**
+     * 위젯 변경 이벤트를 WebSocket으로 브로드캐스트
+     */
+    private void broadcastWidgetUpdate(String messageType, WidgetResponseDto widget, Long userId) {
+        WidgetWebSocketMessage wsMessage = WidgetWebSocketMessage.builder()
+                .messageType(messageType)
+                .widgetId(widget.getId())
+                .userId(userId)
+                .widget(widget)
+                .timestamp(LocalDateTime.now())
+                .build();
+
+        // 사용자별 구독 토픽에 브로드캐스트
+        messagingTemplate.convertAndSend(
+            "/topic/user/" + userId + "/widgets",
+            wsMessage
+        );
+
+        // 장비별 구독 토픽에도 브로드캐스트
+        messagingTemplate.convertAndSend(
+            "/topic/equipment/" + widget.getEquipmentId() + "/widgets",
+            wsMessage
+        );
     }
 }
