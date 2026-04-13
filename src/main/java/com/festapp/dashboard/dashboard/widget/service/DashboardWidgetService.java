@@ -55,6 +55,7 @@ public class DashboardWidgetService {
                 });
     }
 
+    @CacheEvict(value = {"widgets", "widgetsByEquipment"}, allEntries = true)
     public WidgetResponseDto createWidget(Long userId, WidgetRequestDto dto) {
         log.debug("Creating widget for user: {}", userId);
         
@@ -111,14 +112,21 @@ public class DashboardWidgetService {
         return WidgetResponseDto.fromEntity(widget);
     }
 
-    @CacheEvict(value = "widgets", key = "#userId")
+    @CacheEvict(value = {"widgets", "widgetsByEquipment"}, allEntries = true)
     public WidgetResponseDto updateWidget(Long userId, Long widgetId, WidgetRequestDto dto) {
         log.info("Updating widget with id: {} for user: {}", widgetId, userId);
         DashboardWidget widget = getWidgetOrThrow(widgetId, userId);
 
         String oldEquipmentId = widget.getEquipmentId();
+        String newEquipmentId = dto.getEquipmentId();
 
-        widget.setEquipmentId(dto.getEquipmentId());
+        // equipmentId 변경 시 이전 장비 캐시도 무효화
+        boolean equipmentChanged = !oldEquipmentId.equals(newEquipmentId);
+        if (equipmentChanged) {
+            log.debug("Equipment changed from {} to {} - clearing both caches", oldEquipmentId, newEquipmentId);
+        }
+
+        widget.setEquipmentId(newEquipmentId);
         widget.setWidgetType(dto.getWidgetType());
         widget.setTitle(dto.getTitle());
         widget.setSensorId(dto.getSensorId());
@@ -142,7 +150,8 @@ public class DashboardWidgetService {
         return response;
     }
 
-    @CacheEvict(value = "widgets", key = "#userId")
+
+    @CacheEvict(value = {"widgets", "widgetsByEquipment"}, allEntries = true)
     public void deleteWidget(Long userId, Long widgetId) {
         log.info("Deleting widget with id: {} for user: {}", widgetId, userId);
         DashboardWidget widget = getWidgetOrThrow(widgetId, userId);
@@ -171,13 +180,16 @@ public class DashboardWidgetService {
         );
     }
 
-    @CacheEvict(value = "widgets", key = "#userId")
+    @CacheEvict(value = {"widgets", "widgetsByEquipment"}, allEntries = true)
     public List<WidgetResponseDto> updateLayouts(Long userId, WidgetLayoutUpdateDto dto) {
         log.info("Updating layouts for user: {}", userId);
 
         if (dto.getLayouts() == null || dto.getLayouts().isEmpty()) {
             log.warn("No layouts provided for user: {}", userId);
-            return getMyWidgets(userId);
+            return widgetRepository.findByUserUserIdOrderByIdAsc(userId)
+                    .stream()
+                    .map(WidgetResponseDto::fromEntity)
+                    .toList();
         }
 
         List<WidgetResponseDto> updatedWidgets = new ArrayList<>();
