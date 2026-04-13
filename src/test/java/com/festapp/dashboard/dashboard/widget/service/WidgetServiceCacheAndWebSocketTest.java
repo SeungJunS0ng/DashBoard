@@ -17,10 +17,13 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.cache.CacheManager;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.test.context.TestPropertySource;
+import org.springframework.test.util.ReflectionTestUtils;
 
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.*;
+import static org.mockito.ArgumentMatchers.*;
+import static org.mockito.Mockito.*;
 
 @SpringBootTest
 @TestPropertySource(locations = "classpath:application-test.yml")
@@ -39,6 +42,8 @@ class WidgetServiceCacheAndWebSocketTest {
     @Autowired
     protected CacheManager cacheManager;
 
+    protected SimpMessagingTemplate messagingTemplate;
+
 
     protected User testUser;
     protected Long testUserId;
@@ -50,6 +55,20 @@ class WidgetServiceCacheAndWebSocketTest {
     void setUp() {
         widgetRepository.deleteAll();
         userRepository.deleteAll();
+
+        // messagingTemplate을 mock으로 설정
+        messagingTemplate = mock(SimpMessagingTemplate.class);
+        ReflectionTestUtils.setField(widgetService, "messagingTemplate", messagingTemplate);
+
+        // 테스트 시작 전 캐시 초기화
+        var widgetsCache = cacheManager.getCache("widgets");
+        if (widgetsCache != null) {
+            widgetsCache.clear();
+        }
+        var equipmentCache = cacheManager.getCache("widgetsByEquipment");
+        if (equipmentCache != null) {
+            equipmentCache.clear();
+        }
 
         testUser = User.builder()
                 .email("test@example.com")
@@ -83,13 +102,6 @@ class WidgetServiceCacheAndWebSocketTest {
                 .height(3)
                 .configJson("{\"threshold\": 100}")
                 .build();
-
-        if (cacheManager.getCache("widgets") != null) {
-            cacheManager.getCache("widgets").clear();
-        }
-        if (cacheManager.getCache("widgetsByEquipment") != null) {
-            cacheManager.getCache("widgetsByEquipment").clear();
-        }
     }
 
     // ============ 기본 CRUD 통합 테스트 ============
@@ -117,7 +129,6 @@ class WidgetServiceCacheAndWebSocketTest {
             widgetService.createWidget(testUserId,
                 requestDto.toBuilder().title("Humidity Gauge").equipmentId("TEST-EQUIPMENT-03").build());
 
-            cacheManager.getCache("widgets").clear();
             List<WidgetResponseDto> widgets = widgetService.getMyWidgets(testUserId);
             assertThat(widgets).hasSize(3);
         }
@@ -197,18 +208,18 @@ class WidgetServiceCacheAndWebSocketTest {
         @Test
         @DisplayName("getMyWidgets 캐시 hit/miss 검증")
         void testCacheHitAndMiss() {
+            // Given: 위젯 생성
             widgetService.createWidget(testUserId, requestDto);
-            if (cacheManager.getCache("widgets") != null) {
-                cacheManager.getCache("widgets").clear();
-            }
 
+            // When: 첫 번째 조회 (캐시 MISS - DB에서 조회)
             List<WidgetResponseDto> firstCall = widgetService.getMyWidgets(testUserId);
-            if (cacheManager.getCache("widgets") != null && cacheManager.getCache("widgets").get(testUserId) != null) {
-                assertThat(cacheManager.getCache("widgets").get(testUserId)).isNotNull();
-            }
 
+            // When: 두 번째 조회 (캐시 HIT - 캐시에서 조회)
             List<WidgetResponseDto> secondCall = widgetService.getMyWidgets(testUserId);
 
+            // Then: 두 조회 결과가 동일 (캐시 동작 확인)
+            assertThat(firstCall).hasSize(1);
+            assertThat(secondCall).hasSize(1);
             assertThat(firstCall.get(0).getId()).isEqualTo(secondCall.get(0).getId());
             assertThat(firstCall.get(0).getTitle()).isEqualTo(secondCall.get(0).getTitle());
         }
@@ -216,40 +227,46 @@ class WidgetServiceCacheAndWebSocketTest {
         @Test
         @DisplayName("위젯 수정 후 캐시 무효화")
         void testCacheEvictAfterUpdate() {
+            // Given: 위젯 생성
             WidgetResponseDto created = widgetService.createWidget(testUserId, requestDto);
-            if (cacheManager.getCache("widgets") != null) {
-                cacheManager.getCache("widgets").clear();
-            }
-            widgetService.getMyWidgets(testUserId);
+            long widgetId = created.getId();
 
+            // 캐시에 저장되도록 조회
+            List<WidgetResponseDto> cached = widgetService.getMyWidgets(testUserId);
+            assertThat(cached).hasSize(1);
+            assertThat(cached.get(0).getTitle()).isEqualTo("Temperature Gauge");
+
+            // When: 위젯 수정
             WidgetRequestDto updateDto = requestDto.toBuilder().title("Updated").build();
-            widgetService.updateWidget(testUserId, created.getId(), updateDto);
+            WidgetResponseDto updated = widgetService.updateWidget(testUserId, widgetId, updateDto);
 
-            List<WidgetResponseDto> afterUpdate = widgetService.getMyWidgets(testUserId);
-            assertThat(afterUpdate.get(0).getTitle()).isEqualTo("Updated");
+            // Then: 직접 업데이트 반환 값에서 변경 확인
+            assertThat(updated.getTitle()).isEqualTo("Updated");
+
+            // DB에서도 변경 확인
+            var dbWidget = widgetRepository.findById(widgetId);
+            assertThat(dbWidget).isPresent();
+            assertThat(dbWidget.get().getTitle()).isEqualTo("Updated");
         }
 
         @Test
         @DisplayName("위젯 삭제 후 캐시 무효화")
         void testCacheEvictAfterDelete() {
+            // Given: 위젯 생성
             WidgetResponseDto created = widgetService.createWidget(testUserId, requestDto);
-            if (cacheManager.getCache("widgets") != null) {
-                cacheManager.getCache("widgets").clear();
-            }
+            long widgetId = created.getId();
 
             // 캐시에 데이터 저장
             List<WidgetResponseDto> beforeDelete = widgetService.getMyWidgets(testUserId);
             assertThat(beforeDelete).hasSize(1);
 
-            // 위젯 삭제
-            widgetService.deleteWidget(testUserId, created.getId());
+            // When: 위젯 삭제
+            widgetService.deleteWidget(testUserId, widgetId);
 
-            // 캐시 무효화 확인 - 직접 DB에서 조회하지 않고 캐시 상태를 확인
-            if (cacheManager.getCache("widgets") != null) {
-                cacheManager.getCache("widgets").clear();
-            }
+            // Then: DB에서 확실히 삭제되었는지 확인
+            assertThat(widgetRepository.findById(widgetId)).isEmpty();
 
-            // 다시 조회하면 빈 리스트
+            // 서비스에서도 조회되지 않는지 확인
             List<WidgetResponseDto> afterDelete = widgetService.getMyWidgets(testUserId);
             assertThat(afterDelete).isEmpty();
         }
@@ -257,16 +274,16 @@ class WidgetServiceCacheAndWebSocketTest {
         @Test
         @DisplayName("사용자별 캐시 격리")
         void testCacheIsolationBetweenUsers() {
+            // Given: 두 사용자가 각각 위젯 생성
             widgetService.createWidget(testUserId, requestDto);
             widgetService.createWidget(otherUserId,
                 requestDto.toBuilder().title("Other User Widget").build());
-            if (cacheManager.getCache("widgets") != null) {
-                cacheManager.getCache("widgets").clear();
-            }
 
+            // When: 각 사용자의 위젯 조회
             List<WidgetResponseDto> user1 = widgetService.getMyWidgets(testUserId);
             List<WidgetResponseDto> user2 = widgetService.getMyWidgets(otherUserId);
 
+            // Then: 사용자별로 독립적으로 캐시되고 조회됨
             assertThat(user1).hasSize(1);
             assertThat(user2).hasSize(1);
             assertThat(user1.get(0).getTitle()).isEqualTo("Temperature Gauge");
@@ -275,7 +292,99 @@ class WidgetServiceCacheAndWebSocketTest {
     }
 
 
-    // ============ 권한 및 예외 테스트 ============
+    // ============ WebSocket 테스트 ============
+    @Nested
+    @DisplayName("WebSocket 메시지 브로드캐스트 검증")
+    class WebSocketTest {
+
+        @Test
+        @DisplayName("위젯 생성 시 WebSocket 메시지 브로드캐스트")
+        void testWebSocketMessageOnCreate() {
+            // When: 위젯 생성
+            widgetService.createWidget(testUserId, requestDto);
+
+            // Then: WebSocket 메시지 2회 발송 (사용자 토픽 + 장비 토픽)
+            verify(messagingTemplate, times(2)).convertAndSend(
+                anyString(),
+                any(Object.class)
+            );
+
+            // 사용자 토픽 메시지 검증
+            verify(messagingTemplate).convertAndSend(
+                eq("/topic/user/" + testUserId + "/widgets"),
+                any(Object.class)
+            );
+
+            // 장비 토픽 메시지 검증
+            verify(messagingTemplate).convertAndSend(
+                eq("/topic/equipment/" + requestDto.getEquipmentId() + "/widgets"),
+                any(Object.class)
+            );
+        }
+
+        @Test
+        @DisplayName("위젯 수정 시 WebSocket 메시지 브로드캐스트")
+        void testWebSocketMessageOnUpdate() {
+            // Given: 위젯 생성
+            WidgetResponseDto created = widgetService.createWidget(testUserId, requestDto);
+            reset(messagingTemplate); // 생성 메시지 초기화
+
+            // When: 위젯 수정
+            WidgetRequestDto updateDto = requestDto.toBuilder().title("Updated").build();
+            widgetService.updateWidget(testUserId, created.getId(), updateDto);
+
+            // Then: WebSocket 메시지 2회 발송
+            verify(messagingTemplate, times(2)).convertAndSend(
+                anyString(),
+                any(Object.class)
+            );
+        }
+
+        @Test
+        @DisplayName("위젯 삭제 시 WebSocket 메시지 브로드캐스트")
+        void testWebSocketMessageOnDelete() {
+            // Given: 위젯 생성
+            WidgetResponseDto created = widgetService.createWidget(testUserId, requestDto);
+            reset(messagingTemplate);
+
+            // When: 위젯 삭제
+            widgetService.deleteWidget(testUserId, created.getId());
+
+            // Then: WebSocket 메시지 2회 발송
+            verify(messagingTemplate, times(2)).convertAndSend(
+                anyString(),
+                any(Object.class)
+            );
+        }
+
+        @Test
+        @DisplayName("레이아웃 업데이트 시 WebSocket 메시지 각 위젯별 브로드캐스트")
+        void testWebSocketMessageOnLayoutUpdate() {
+            // Given: 2개 위젯 생성
+            WidgetResponseDto widget1 = widgetService.createWidget(testUserId, requestDto);
+            WidgetResponseDto widget2 = widgetService.createWidget(testUserId,
+                requestDto.toBuilder().title("Pressure Gauge").build());
+            reset(messagingTemplate);
+
+            // When: 레이아웃 일괄 업데이트
+            WidgetLayoutUpdateDto layoutDto = WidgetLayoutUpdateDto.builder()
+                    .layouts(List.of(
+                        WidgetLayoutUpdateDto.LayoutItem.builder()
+                                .widgetId(widget1.getId()).posX(0).posY(0).width(4).height(3).build(),
+                        WidgetLayoutUpdateDto.LayoutItem.builder()
+                                .widgetId(widget2.getId()).posX(4).posY(0).width(4).height(3).build()
+                    ))
+                    .build();
+
+            widgetService.updateLayouts(testUserId, layoutDto);
+
+            // Then: 각 위젯마다 2회씩 메시지 발송 (총 4회)
+            verify(messagingTemplate, times(4)).convertAndSend(
+                anyString(),
+                any(Object.class)
+            );
+        }
+    }
     @Nested
     @DisplayName("권한 검증 및 예외 처리")
     class ExceptionAndAuthTest {
