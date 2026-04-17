@@ -17,6 +17,7 @@ public class RealTimeDataService {
 
   private final SimpMessagingTemplate messagingTemplate;
   private final RedisTemplate<String, Object> redisTemplate;
+  private final SensorHistoryService sensorHistoryService;
 
   @RabbitListener(queues = "uemd.sensor.queue")
   public void processSensorData(SensorDataPayload payload) {
@@ -24,6 +25,7 @@ public class RealTimeDataService {
     autoTagging(payload.getSensors());
 
     String equipmentId = payload.getEquipmentId();
+    sensorHistoryService.persistTelemetryPayload(payload);
 
     // 1. Redis에 장비의 최신 상태(Snapshot) 업데이트
     String redisKey = "equipment:current:" + equipmentId;
