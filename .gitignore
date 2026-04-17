@@ -73,4 +73,6 @@ Thumbs.db
 src/main/resources/application.yml
 src/main/resources/application-*.yml
 src/test/resources/application-test.yml
-
+!.run/
+!.run/*.run.xml
+!src/main/resources/application-example.yml

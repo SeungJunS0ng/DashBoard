@@ -45,22 +45,29 @@ public class SwaggerConfig {
         return new Info()
                 .title("DashBoard API")
                 .description("대시보드 API\n\n" +
-                        "## 주요 기능\n\n" +
-                        "### 인증 (Authentication)\n" +
-                        "- 회원가입: 새로운 계정 생성\n" +
-                        "- 로그인: JWT 토큰 발급\n" +
-                        "- 토큰 갱신: Refresh Token으로 새 Access Token 획득\n" +
-                        "- 비밀번호 변경: 현재 비밀번호 확인 후 변경\n\n" +
-                        "### 사용자 관리 (User Management)\n" +
-                        "- 사용자 정보 조회\n" +
-                        "- 사용자 정보 수정\n" +
-                        "- 계정 활성화/비활성화\n" +
-                        "- 역할 관리 (관리자 승격/강등)\n\n" +
-                        "### 위젯 (Dashboard Widgets)\n" +
-                        "- 위젯 생성/조회/수정/삭제\n" +
-                        "- 위젯 레이아웃 관리\n" +
-                        "- 장비별 위젯 조회\n" +
-                        "- **사용자는 자신의 위젯만 조회/수정/삭제 가능합니다**\n\n" +
+                        "## 프론트에서 보는 추천 흐름\n\n" +
+                        "1. **회원가입/로그인**\n" +
+                        "- `POST /api/auth/signup`\n" +
+                        "- `POST /api/auth/login`\n" +
+                        "- 로그인 후 accessToken을 Authorization 헤더에 넣어 이후 API를 호출합니다.\n\n" +
+                        "2. **대시보드 진입**\n" +
+                        "- `GET /api/dashboards`\n" +
+                        "- 사용자 홈/사이드바에서 대시보드 목록을 그릴 때 사용합니다.\n\n" +
+                        "3. **대시보드 상세 화면 렌더링**\n" +
+                        "- `GET /api/dashboards/{dashboardId}`\n" +
+                        "- `GET /api/dashboards/{dashboardId}/widgets`\n" +
+                        "- 선택한 대시보드의 메타정보와 위젯 레이아웃을 불러올 때 사용합니다.\n\n" +
+                        "4. **ERD 기준 리소스 관리**\n" +
+                        "- 대시보드 아래에 장비(`equipment`)가 있고, 장비 아래에 센서(`sensor`)가 있습니다.\n" +
+                        "- 위젯은 대시보드에 배치되며, 필요 시 장비/센서를 참조합니다.\n\n" +
+                        "5. **시계열 데이터 표시**\n" +
+                        "- `GET /api/sensors/{sensorId}/history/numeric`\n" +
+                        "- `GET /api/sensors/{sensorId}/history/string`\n" +
+                        "- 차트/상태 패널에서 최근 이력을 읽어올 때 사용합니다.\n\n" +
+                        "## 프론트가 특히 알아야 할 점\n\n" +
+                        "- `equipmentEntityId`, `sensorEntityId`는 **새 ERD 기준 PK**입니다.\n" +
+                        "- `equipmentId`, `sensorId` 문자열 필드는 **레거시 호환용 식별자**입니다.\n" +
+                        "- 새 화면/신규 기능은 가능하면 `equipmentEntityId`, `sensorEntityId`를 기준으로 구현하는 것을 권장합니다.\n\n" +
                         "## 에러 처리\n\n" +
                         "모든 오류 응답은 아래 형식을 따릅니다:\n" +
                         "```json\n" +
