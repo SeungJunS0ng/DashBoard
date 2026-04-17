@@ -1,9 +1,12 @@
 // 사용자 엔티티 - 사용자 정보를 저장하는 데이터베이스 테이블
 package com.festapp.dashboard.user.entity;
 
+import com.festapp.dashboard.dashboard.entity.Dashboard;
 import jakarta.persistence.*;
 import lombok.*;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
 
 @Entity
 @Table(name = "users")
@@ -13,7 +16,7 @@ import java.time.LocalDateTime;
 @AllArgsConstructor
 @Builder
 @EqualsAndHashCode(of = "userId")
-@ToString(exclude = "password")
+@ToString(exclude = {"password", "dashboards"})
 public class User {
 
     @Id
@@ -46,6 +49,10 @@ public class User {
 
     @Column(name = "updated_at")
     private LocalDateTime updatedAt;
+
+    @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
+    @Builder.Default
+    private List<Dashboard> dashboards = new ArrayList<>();
 
     @PrePersist
     protected void onCreate() {

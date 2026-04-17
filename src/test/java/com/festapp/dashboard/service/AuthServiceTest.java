@@ -6,6 +6,7 @@ import com.festapp.dashboard.auth.entity.RefreshToken;
 import com.festapp.dashboard.auth.exception.AuthException;
 import com.festapp.dashboard.auth.repository.RefreshTokenRepository;
 import com.festapp.dashboard.auth.service.AuthService;
+import com.festapp.dashboard.dashboard.service.DashboardProvisioningService;
 import com.festapp.dashboard.user.dto.UserInfoResponse;
 import com.festapp.dashboard.user.entity.User;
 import com.festapp.dashboard.user.repository.UserRepository;
@@ -50,6 +51,9 @@ public class AuthServiceTest {
 
     @Mock
     private AuthenticationManager authenticationManager;
+
+    @Mock
+    private DashboardProvisioningService dashboardProvisioningService;
 
     @InjectMocks
     private AuthService authService;

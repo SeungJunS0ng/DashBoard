@@ -8,6 +8,7 @@ import com.festapp.dashboard.user.entity.User;
 import com.festapp.dashboard.user.repository.UserRepository;
 import com.festapp.dashboard.user.service.UserService;
 import com.festapp.dashboard.auth.repository.RefreshTokenRepository;
+import com.festapp.dashboard.dashboard.service.DashboardProvisioningService;
 import com.festapp.dashboard.common.exception.ResourceNotFoundException;
 import com.festapp.dashboard.common.exception.ValidationException;
 import org.junit.jupiter.api.BeforeEach;
@@ -38,6 +39,9 @@ public class UserServiceTest {
 
     @Mock
     private PasswordEncoder passwordEncoder;
+
+    @Mock
+    private DashboardProvisioningService dashboardProvisioningService;
 
     @InjectMocks
     private UserService userService;

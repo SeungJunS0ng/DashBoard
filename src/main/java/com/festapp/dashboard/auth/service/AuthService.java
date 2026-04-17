@@ -5,6 +5,7 @@ import com.festapp.dashboard.auth.dto.*;
 import com.festapp.dashboard.auth.entity.RefreshToken;
 import com.festapp.dashboard.auth.exception.AuthException;
 import com.festapp.dashboard.auth.repository.RefreshTokenRepository;
+import com.festapp.dashboard.dashboard.service.DashboardProvisioningService;
 import com.festapp.dashboard.user.dto.UserInfoResponse;
 import com.festapp.dashboard.user.entity.User;
 import com.festapp.dashboard.user.repository.UserRepository;
@@ -42,6 +43,7 @@ public class AuthService {
     private final PasswordEncoder passwordEncoder;
     private final JwtProvider jwtProvider;
     private final AuthenticationManager authenticationManager;
+    private final DashboardProvisioningService dashboardProvisioningService;
 
     /**
      * 공통 메서드: userId로 User 조회
@@ -89,6 +91,7 @@ public class AuthService {
                 .build();
 
         User savedUser = userRepository.save(user);
+        dashboardProvisioningService.ensureDefaultDashboard(savedUser);
         log.info("회원가입 성공: userId: {}, username: {}", savedUser.getUserId(), savedUser.getUsername());
 
         return convertToUserInfoResponse(savedUser);

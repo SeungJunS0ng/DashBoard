@@ -7,6 +7,7 @@ import com.festapp.dashboard.user.dto.UserUpdateRequest;
 import com.festapp.dashboard.user.entity.User;
 import com.festapp.dashboard.user.repository.UserRepository;
 import com.festapp.dashboard.auth.repository.RefreshTokenRepository;
+import com.festapp.dashboard.dashboard.service.DashboardProvisioningService;
 import com.festapp.dashboard.common.exception.ResourceNotFoundException;
 import com.festapp.dashboard.common.exception.ValidationException;
 import com.festapp.dashboard.common.exception.ErrorCode;
@@ -28,6 +29,7 @@ public class UserService {
     private final UserRepository userRepository;
     private final RefreshTokenRepository refreshTokenRepository;
     private final PasswordEncoder passwordEncoder;
+    private final DashboardProvisioningService dashboardProvisioningService;
 
     /**
      * 공통 메서드: userId로 User 엔티티 조회
@@ -75,6 +77,7 @@ public class UserService {
                 .build();
 
         User savedUser = userRepository.save(newUser);
+        dashboardProvisioningService.ensureDefaultDashboard(savedUser);
         log.info("User created successfully with userId: {}", savedUser.getUserId());
         return convertToDTO(savedUser);
     }

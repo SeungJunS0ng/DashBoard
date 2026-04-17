@@ -37,6 +37,8 @@ public enum ErrorCode {
     EQUIPMENT_NOT_FOUND(4202, HttpStatus.NOT_FOUND, "장비를 찾을 수 없습니다"),
     WIDGET_ACCESS_DENIED(4203, HttpStatus.FORBIDDEN, "이 위젯에 접근할 권한이 없습니다"),
     RESOURCE_ALREADY_EXISTS(4204, HttpStatus.BAD_REQUEST, "해당 리소스가 이미 존재합니다"),
+    DASHBOARD_NOT_FOUND(4205, HttpStatus.NOT_FOUND, "대시보드를 찾을 수 없습니다"),
+    SENSOR_NOT_FOUND(4206, HttpStatus.NOT_FOUND, "센서를 찾을 수 없습니다"),
 
     // 비즈니스 로직 에러 (4300-4399)
     INVALID_STATE_TRANSITION(4300, HttpStatus.BAD_REQUEST, "유효하지 않은 상태 전환입니다"),
