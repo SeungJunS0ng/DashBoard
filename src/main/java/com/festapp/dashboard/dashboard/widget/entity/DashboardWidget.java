@@ -1,42 +1,46 @@
-// 대시보드 위젯 엔티티 - 위젯 정보를 저장하는 데이터베이스 테이블
 package com.festapp.dashboard.dashboard.widget.entity;
 
-import com.festapp.dashboard.user.entity.User;
+import com.festapp.dashboard.dashboard.entity.Dashboard;
+import com.festapp.dashboard.equipment.entity.Equipment;
+import com.festapp.dashboard.telemetry.entity.Sensor;
 import jakarta.persistence.*;
 import lombok.*;
+
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "dashboard_widgets")
+@Table(name = "widgets")
 @Getter
 @Setter
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-@EqualsAndHashCode(of = "id")
-@ToString(exclude = "user")
+@EqualsAndHashCode(of = "widgetId")
+@ToString(exclude = {"dashboard", "equipment", "sensor"})
 public class DashboardWidget {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @Column(name = "id")
-    private Long id;
+    @Column(name = "widget_id")
+    private Long widgetId;
+
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "dashboard_id", nullable = false)
+    private Dashboard dashboard;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "user_id", nullable = false)
-    private User user;
+    @JoinColumn(name = "equipment_id")
+    private Equipment equipment;
 
-    @Column(name = "equipment_id", nullable = false, length = 255)
-    private String equipmentId;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "sensor_id")
+    private Sensor sensor;
 
     @Column(name = "widget_type", nullable = false, length = 50)
     private String widgetType;
 
     @Column(name = "title", nullable = false, length = 255)
     private String title;
-
-    @Column(name = "sensor_id", length = 255)
-    private String sensorId;
 
     @Column(name = "chart_type", length = 50)
     private String chartType;
@@ -63,24 +67,28 @@ public class DashboardWidget {
     @Builder.Default
     private Integer height = 1;
 
-    @Column(name = "config_json", columnDefinition = "LONGTEXT")
+    @Column(name = "config_json", columnDefinition = "TEXT")
     private String configJson;
 
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
-    @Column(name = "updated_at")
+    @Column(name = "updated_at", nullable = false)
     private LocalDateTime updatedAt;
 
     @PrePersist
     protected void onCreate() {
-        this.createdAt = LocalDateTime.now();
-        this.updatedAt = LocalDateTime.now();
+        LocalDateTime now = LocalDateTime.now();
+        this.createdAt = now;
+        this.updatedAt = now;
     }
 
     @PreUpdate
     protected void onUpdate() {
         this.updatedAt = LocalDateTime.now();
     }
-}
 
+    public Long getId() {
+        return widgetId;
+    }
+}

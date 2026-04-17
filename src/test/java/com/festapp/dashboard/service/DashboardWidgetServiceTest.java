@@ -2,10 +2,15 @@
 package com.festapp.dashboard.service;
 
 import com.festapp.dashboard.dashboard.widget.dto.WidgetRequestDto;
+import com.festapp.dashboard.dashboard.repository.DashboardRepository;
 import com.festapp.dashboard.user.entity.User;
 import com.festapp.dashboard.dashboard.widget.exception.WidgetNotFoundException;
 import com.festapp.dashboard.dashboard.widget.repository.DashboardWidgetRepository;
 import com.festapp.dashboard.dashboard.widget.service.DashboardWidgetService;
+import com.festapp.dashboard.equipment.repository.EquipmentRepository;
+import com.festapp.dashboard.telemetry.repository.SensorNumericHistoryRepository;
+import com.festapp.dashboard.telemetry.repository.SensorRepository;
+import com.festapp.dashboard.telemetry.repository.SensorStringHistoryRepository;
 import com.festapp.dashboard.user.repository.UserRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -34,6 +39,21 @@ public class DashboardWidgetServiceTest {
     private UserRepository userRepository;
 
     @Autowired
+    private DashboardRepository dashboardRepository;
+
+    @Autowired
+    private EquipmentRepository equipmentRepository;
+
+    @Autowired
+    private SensorRepository sensorRepository;
+
+    @Autowired
+    private SensorNumericHistoryRepository sensorNumericHistoryRepository;
+
+    @Autowired
+    private SensorStringHistoryRepository sensorStringHistoryRepository;
+
+    @Autowired
     private PasswordEncoder passwordEncoder;
 
     private Long testUserId = 1L;
@@ -43,6 +63,11 @@ public class DashboardWidgetServiceTest {
     @BeforeEach
     void setUp() {
         widgetRepository.deleteAll();
+        sensorStringHistoryRepository.deleteAll();
+        sensorNumericHistoryRepository.deleteAll();
+        sensorRepository.deleteAll();
+        equipmentRepository.deleteAll();
+        dashboardRepository.deleteAll();
         userRepository.deleteAll();
 
         // Create test users without explicitly setting userId

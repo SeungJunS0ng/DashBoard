@@ -26,6 +26,12 @@ public class WidgetWebSocketMessage {
     @Schema(description = "변경을 수행한 사용자 ID")
     private Long userId;
 
+    @Schema(description = "레거시 장비 식별자(장비명 기반)")
+    private String equipmentId;
+
+    @Schema(description = "장비 엔티티 ID")
+    private Long equipmentEntityId;
+
     @Schema(description = "변경된 위젯 정보")
     private WidgetResponseDto widget;
 

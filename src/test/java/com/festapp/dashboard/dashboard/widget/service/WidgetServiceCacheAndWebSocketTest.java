@@ -1,11 +1,16 @@
 package com.festapp.dashboard.dashboard.widget.service;
 
 import com.festapp.dashboard.common.exception.ResourceNotFoundException;
+import com.festapp.dashboard.dashboard.repository.DashboardRepository;
 import com.festapp.dashboard.dashboard.widget.dto.WidgetLayoutUpdateDto;
 import com.festapp.dashboard.dashboard.widget.dto.WidgetRequestDto;
 import com.festapp.dashboard.dashboard.widget.dto.WidgetResponseDto;
 import com.festapp.dashboard.dashboard.widget.exception.WidgetNotFoundException;
 import com.festapp.dashboard.dashboard.widget.repository.DashboardWidgetRepository;
+import com.festapp.dashboard.equipment.repository.EquipmentRepository;
+import com.festapp.dashboard.telemetry.repository.SensorNumericHistoryRepository;
+import com.festapp.dashboard.telemetry.repository.SensorRepository;
+import com.festapp.dashboard.telemetry.repository.SensorStringHistoryRepository;
 import com.festapp.dashboard.user.entity.User;
 import com.festapp.dashboard.user.repository.UserRepository;
 import org.junit.jupiter.api.BeforeEach;
@@ -26,7 +31,7 @@ import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
 @SpringBootTest
-@TestPropertySource(locations = "classpath:application-test.yml")
+@TestPropertySource(locations = "classpath:application-test.properties")
 @DisplayName("위젯 서비스 - 캐시 및 통합 테스트")
 class WidgetServiceCacheAndWebSocketTest {
 
@@ -38,6 +43,21 @@ class WidgetServiceCacheAndWebSocketTest {
 
     @Autowired
     protected UserRepository userRepository;
+
+    @Autowired
+    protected DashboardRepository dashboardRepository;
+
+    @Autowired
+    protected EquipmentRepository equipmentRepository;
+
+    @Autowired
+    protected SensorRepository sensorRepository;
+
+    @Autowired
+    protected SensorNumericHistoryRepository sensorNumericHistoryRepository;
+
+    @Autowired
+    protected SensorStringHistoryRepository sensorStringHistoryRepository;
 
     @Autowired
     protected CacheManager cacheManager;
@@ -54,6 +74,11 @@ class WidgetServiceCacheAndWebSocketTest {
     @BeforeEach
     void setUp() {
         widgetRepository.deleteAll();
+        sensorStringHistoryRepository.deleteAll();
+        sensorNumericHistoryRepository.deleteAll();
+        sensorRepository.deleteAll();
+        equipmentRepository.deleteAll();
+        dashboardRepository.deleteAll();
         userRepository.deleteAll();
 
         // messagingTemplate을 mock으로 설정
@@ -303,8 +328,8 @@ class WidgetServiceCacheAndWebSocketTest {
             // When: 위젯 생성
             widgetService.createWidget(testUserId, requestDto);
 
-            // Then: WebSocket 메시지 2회 발송 (사용자 토픽 + 장비 토픽)
-            verify(messagingTemplate, times(2)).convertAndSend(
+            // Then: WebSocket 메시지 3회 발송 (사용자 + legacy 장비키 + 장비 PK 토픽)
+            verify(messagingTemplate, times(3)).convertAndSend(
                 anyString(),
                 any(Object.class)
             );
@@ -320,6 +345,11 @@ class WidgetServiceCacheAndWebSocketTest {
                 eq("/topic/equipment/" + requestDto.getEquipmentId() + "/widgets"),
                 any(Object.class)
             );
+
+            verify(messagingTemplate).convertAndSend(
+                startsWith("/topic/equipment-id/"),
+                any(Object.class)
+            );
         }
 
         @Test
@@ -333,8 +363,8 @@ class WidgetServiceCacheAndWebSocketTest {
             WidgetRequestDto updateDto = requestDto.toBuilder().title("Updated").build();
             widgetService.updateWidget(testUserId, created.getId(), updateDto);
 
-            // Then: WebSocket 메시지 2회 발송
-            verify(messagingTemplate, times(2)).convertAndSend(
+            // Then: WebSocket 메시지 3회 발송
+            verify(messagingTemplate, times(3)).convertAndSend(
                 anyString(),
                 any(Object.class)
             );
@@ -350,8 +380,8 @@ class WidgetServiceCacheAndWebSocketTest {
             // When: 위젯 삭제
             widgetService.deleteWidget(testUserId, created.getId());
 
-            // Then: WebSocket 메시지 2회 발송
-            verify(messagingTemplate, times(2)).convertAndSend(
+            // Then: WebSocket 메시지 3회 발송
+            verify(messagingTemplate, times(3)).convertAndSend(
                 anyString(),
                 any(Object.class)
             );
@@ -378,8 +408,8 @@ class WidgetServiceCacheAndWebSocketTest {
 
             widgetService.updateLayouts(testUserId, layoutDto);
 
-            // Then: 각 위젯마다 2회씩 메시지 발송 (총 4회)
-            verify(messagingTemplate, times(4)).convertAndSend(
+            // Then: 각 위젯마다 3회씩 메시지 발송 (총 6회)
+            verify(messagingTemplate, times(6)).convertAndSend(
                 anyString(),
                 any(Object.class)
             );

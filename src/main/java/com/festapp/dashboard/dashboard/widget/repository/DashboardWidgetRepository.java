@@ -1,30 +1,41 @@
-// 대시보드 위젯 리포지토리 - 위젯 데이터 접근 계층
 package com.festapp.dashboard.dashboard.widget.repository;
 
 import com.festapp.dashboard.dashboard.widget.entity.DashboardWidget;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
-import org.springframework.stereotype.Repository;
+
 import java.util.List;
 import java.util.Optional;
 
-@Repository
 public interface DashboardWidgetRepository extends JpaRepository<DashboardWidget, Long> {
 
-    List<DashboardWidget> findByUserUserIdOrderByIdAsc(Long userId);
+    List<DashboardWidget> findByDashboardUserUserIdOrderByWidgetIdAsc(Long userId);
 
-    List<DashboardWidget> findByUserUserIdAndEquipmentIdOrderByIdAsc(Long userId, String equipmentId);
+    List<DashboardWidget> findByDashboardDashboardIdOrderByWidgetIdAsc(Long dashboardId);
 
-    Optional<DashboardWidget> findByIdAndUserUserId(Long id, Long userId);
+    List<DashboardWidget> findByDashboardUserUserIdAndEquipmentEquipmentNameOrderByWidgetIdAsc(Long userId, String equipmentName);
 
-    @Query("SELECT COUNT(w) FROM DashboardWidget w WHERE w.user.userId = :userId")
+    List<DashboardWidget> findByDashboardUserUserIdAndEquipmentEquipmentIdOrderByWidgetIdAsc(Long userId, Long equipmentId);
+
+    Optional<DashboardWidget> findByWidgetIdAndDashboardUserUserId(Long widgetId, Long userId);
+
+    @Query("SELECT COUNT(w) FROM DashboardWidget w WHERE w.dashboard.user.userId = :userId")
     long countByUserId(@Param("userId") Long userId);
 
-    @Query("DELETE FROM DashboardWidget w WHERE w.user.userId = :userId")
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query("DELETE FROM DashboardWidget w WHERE w.dashboard.user.userId = :userId")
     void deleteByUserId(@Param("userId") Long userId);
 
-    @Query("SELECT COUNT(w) FROM DashboardWidget w WHERE w.user.userId = :userId AND w.equipmentId = :equipmentId")
-    long countByUserIdAndEquipmentId(@Param("userId") Long userId, @Param("equipmentId") String equipmentId);
-}
+    @Query("SELECT COUNT(w) FROM DashboardWidget w WHERE w.dashboard.user.userId = :userId AND w.equipment.equipmentName = :equipmentName")
+    long countByUserIdAndEquipmentId(@Param("userId") Long userId, @Param("equipmentName") String equipmentName);
 
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query("UPDATE DashboardWidget w SET w.sensor = null WHERE w.sensor.sensorId = :sensorId")
+    void clearSensorReference(@Param("sensorId") Long sensorId);
+
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query("UPDATE DashboardWidget w SET w.sensor = null, w.equipment = null WHERE w.equipment.equipmentId = :equipmentId")
+    void clearEquipmentAndSensorReferences(@Param("equipmentId") Long equipmentId);
+}

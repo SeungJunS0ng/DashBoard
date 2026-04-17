@@ -1,6 +1,9 @@
-// 대시보드 위젯 서비스 - 위젯 CRUD 및 레이아웃 관리 비즈니스 로직
 package com.festapp.dashboard.dashboard.widget.service;
 
+import com.festapp.dashboard.common.exception.ErrorCode;
+import com.festapp.dashboard.common.exception.ResourceNotFoundException;
+import com.festapp.dashboard.dashboard.entity.Dashboard;
+import com.festapp.dashboard.dashboard.repository.DashboardRepository;
 import com.festapp.dashboard.dashboard.widget.dto.WidgetLayoutUpdateDto;
 import com.festapp.dashboard.dashboard.widget.dto.WidgetRequestDto;
 import com.festapp.dashboard.dashboard.widget.dto.WidgetResponseDto;
@@ -8,17 +11,20 @@ import com.festapp.dashboard.dashboard.widget.dto.WidgetWebSocketMessage;
 import com.festapp.dashboard.dashboard.widget.entity.DashboardWidget;
 import com.festapp.dashboard.dashboard.widget.exception.WidgetNotFoundException;
 import com.festapp.dashboard.dashboard.widget.repository.DashboardWidgetRepository;
+import com.festapp.dashboard.equipment.entity.Equipment;
+import com.festapp.dashboard.equipment.repository.EquipmentRepository;
+import com.festapp.dashboard.telemetry.entity.Sensor;
+import com.festapp.dashboard.telemetry.repository.SensorRepository;
 import com.festapp.dashboard.user.entity.User;
 import com.festapp.dashboard.user.repository.UserRepository;
-import com.festapp.dashboard.common.exception.ResourceNotFoundException;
-import com.festapp.dashboard.common.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.cache.annotation.CacheEvict;
-import org.springframework.cache.annotation.Cacheable;
+import org.springframework.cache.Cache;
+import org.springframework.cache.CacheManager;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
@@ -30,43 +36,109 @@ import java.util.List;
 public class DashboardWidgetService {
 
     private final DashboardWidgetRepository widgetRepository;
+    private final DashboardRepository dashboardRepository;
+    private final EquipmentRepository equipmentRepository;
+    private final SensorRepository sensorRepository;
     private final UserRepository userRepository;
+    private final CacheManager cacheManager;
     private final SimpMessagingTemplate messagingTemplate;
 
-    /**
-     * 공통 메서드: userId로 User 엔티티 조회
-     */
-    private User getUserOrThrow(Long userId) {
-        return userRepository.findById(userId)
+    private Dashboard getDashboardOrDefault(Long userId, Long dashboardId) {
+        if (dashboardId == null) {
+            return dashboardRepository.findFirstByUserUserIdOrderByDashboardIdAsc(userId)
+                    .or(() -> userRepository.findById(userId).map(this::createDefaultDashboard))
+                    .orElseThrow(() -> {
+                        log.warn("No dashboard found for user: {}", userId);
+                        return new ResourceNotFoundException(ErrorCode.DASHBOARD_NOT_FOUND);
+                    });
+        }
+
+        return dashboardRepository.findByDashboardIdAndUserUserId(dashboardId, userId)
                 .orElseThrow(() -> {
-                    log.warn("User not found with userId: {}", userId);
-                    return new ResourceNotFoundException(ErrorCode.USER_NOT_FOUND);
+                    log.warn("Dashboard not found with id: {} for user: {}", dashboardId, userId);
+                    return new ResourceNotFoundException(ErrorCode.DASHBOARD_NOT_FOUND);
                 });
     }
 
-    /**
-     * 공통 메서드: widgetId와 userId로 Widget 조회
-     */
+    private Dashboard createDefaultDashboard(User user) {
+        return dashboardRepository.save(
+                Dashboard.builder()
+                        .dashboardName(user.getUsername() + " Dashboard")
+                        .description("Auto-provisioned dashboard for " + user.getUsername())
+                        .user(user)
+                        .build()
+        );
+    }
+
+    private Equipment resolveEquipment(Long userId, Dashboard dashboard, WidgetRequestDto dto) {
+        if (dto.getEquipmentEntityId() != null) {
+            return equipmentRepository.findByEquipmentIdAndDashboardDashboardId(dto.getEquipmentEntityId(), dashboard.getDashboardId())
+                    .orElseThrow(() -> new ResourceNotFoundException(ErrorCode.EQUIPMENT_NOT_FOUND));
+        }
+
+        String equipmentId = dto.getEquipmentId();
+        if (equipmentId == null || equipmentId.isBlank()) {
+            return null;
+        }
+
+        return equipmentRepository.findByEquipmentNameAndDashboardDashboardId(equipmentId, dashboard.getDashboardId())
+                .orElseGet(() -> equipmentRepository.save(
+                        Equipment.builder()
+                                .equipmentName(equipmentId)
+                                .dashboard(dashboard)
+                                .build()
+                ));
+    }
+
+    private Sensor resolveSensor(Long userId, Equipment equipment, WidgetRequestDto dto) {
+        if (dto.getSensorEntityId() != null) {
+            Sensor sensor = sensorRepository.findBySensorIdAndEquipmentDashboardUserUserId(dto.getSensorEntityId(), userId)
+                    .orElseThrow(() -> new ResourceNotFoundException(ErrorCode.SENSOR_NOT_FOUND));
+
+            if (equipment != null && !sensor.getEquipment().getEquipmentId().equals(equipment.getEquipmentId())) {
+                throw new ResourceNotFoundException(ErrorCode.SENSOR_NOT_FOUND, "지정한 sensorEntityId가 equipment와 일치하지 않습니다");
+            }
+
+            return sensor;
+        }
+
+        String sensorId = dto.getSensorId();
+        if (sensorId == null || sensorId.isBlank()) {
+            return null;
+        }
+
+        if (equipment == null) {
+            throw new ResourceNotFoundException(ErrorCode.EQUIPMENT_NOT_FOUND, "sensorId를 지정하려면 equipmentId도 필요합니다");
+        }
+
+        return sensorRepository.findBySensorNameAndEquipmentEquipmentId(sensorId, equipment.getEquipmentId())
+                .orElseGet(() -> sensorRepository.save(
+                        Sensor.builder()
+                                .sensorName(sensorId)
+                                .equipment(equipment)
+                                .build()
+                ));
+    }
+
     private DashboardWidget getWidgetOrThrow(Long widgetId, Long userId) {
-        return widgetRepository.findByIdAndUserUserId(widgetId, userId)
+        return widgetRepository.findByWidgetIdAndDashboardUserUserId(widgetId, userId)
                 .orElseThrow(() -> {
                     log.warn("Widget not found with id: {} for user: {}", widgetId, userId);
                     return new WidgetNotFoundException(ErrorCode.WIDGET_NOT_FOUND);
                 });
     }
 
-    @CacheEvict(value = {"widgets", "widgetsByEquipment"}, allEntries = true)
     public WidgetResponseDto createWidget(Long userId, WidgetRequestDto dto) {
-        log.debug("Creating widget for user: {}", userId);
-        
-        User user = getUserOrThrow(userId);
+        Dashboard dashboard = getDashboardOrDefault(userId, dto.getDashboardId());
+        Equipment equipment = resolveEquipment(userId, dashboard, dto);
+        Sensor sensor = resolveSensor(userId, equipment, dto);
 
         DashboardWidget widget = DashboardWidget.builder()
-                .user(user)
-                .equipmentId(dto.getEquipmentId())
+                .dashboard(dashboard)
+                .equipment(equipment)
+                .sensor(sensor)
                 .widgetType(dto.getWidgetType())
                 .title(dto.getTitle())
-                .sensorId(dto.getSensorId())
                 .chartType(dto.getChartType())
                 .dataType(dto.getDataType())
                 .unit(dto.getUnit())
@@ -80,56 +152,65 @@ public class DashboardWidgetService {
         DashboardWidget savedWidget = widgetRepository.save(widget);
         WidgetResponseDto response = WidgetResponseDto.fromEntity(savedWidget);
 
-        log.info("Widget created successfully with id: {} for user: {}", savedWidget.getId(), userId);
-
-        // WebSocket 메시지 브로드캐스트
+        evictWidgetCaches();
         broadcastWidgetUpdate(WidgetWebSocketMessage.MessageType.WIDGET_CREATED, response, userId);
-
         return response;
     }
 
-    @Cacheable(value = "widgets", key = "#userId")
+    @Transactional(readOnly = true)
     public List<WidgetResponseDto> getMyWidgets(Long userId) {
-        log.debug("Cache MISS - Fetching all widgets for user: {}", userId);
-        return widgetRepository.findByUserUserIdOrderByIdAsc(userId)
+        return widgetRepository.findByDashboardUserUserIdOrderByWidgetIdAsc(userId)
                 .stream()
                 .map(WidgetResponseDto::fromEntity)
                 .toList();
     }
 
-    @Cacheable(value = "widgetsByEquipment", key = "#userId + ':' + #equipmentId")
+    @Transactional(readOnly = true)
+    public List<WidgetResponseDto> getDashboardWidgets(Long userId, Long dashboardId) {
+        dashboardRepository.findByDashboardIdAndUserUserId(dashboardId, userId)
+                .orElseThrow(() -> new ResourceNotFoundException(ErrorCode.DASHBOARD_NOT_FOUND));
+
+        return widgetRepository.findByDashboardDashboardIdOrderByWidgetIdAsc(dashboardId)
+                .stream()
+                .map(WidgetResponseDto::fromEntity)
+                .toList();
+    }
+
+    @Transactional(readOnly = true)
     public List<WidgetResponseDto> getMyWidgetsByEquipment(Long userId, String equipmentId) {
-        log.debug("Cache MISS - Fetching widgets for user: {} with equipmentId: {}", userId, equipmentId);
-        return widgetRepository.findByUserUserIdAndEquipmentIdOrderByIdAsc(userId, equipmentId)
+        return widgetRepository.findByDashboardUserUserIdAndEquipmentEquipmentNameOrderByWidgetIdAsc(userId, equipmentId)
                 .stream()
                 .map(WidgetResponseDto::fromEntity)
                 .toList();
     }
 
-    public WidgetResponseDto getWidget(Long userId, Long widgetId) {
-        log.debug("Fetching widget with id: {} for user: {}", widgetId, userId);
-        DashboardWidget widget = getWidgetOrThrow(widgetId, userId);
-        return WidgetResponseDto.fromEntity(widget);
+    @Transactional(readOnly = true)
+    public List<WidgetResponseDto> getMyWidgetsByEquipmentEntityId(Long userId, Long equipmentId) {
+        equipmentRepository.findByEquipmentIdAndDashboardUserUserId(equipmentId, userId)
+                .orElseThrow(() -> new ResourceNotFoundException(ErrorCode.EQUIPMENT_NOT_FOUND));
+
+        return widgetRepository.findByDashboardUserUserIdAndEquipmentEquipmentIdOrderByWidgetIdAsc(userId, equipmentId)
+                .stream()
+                .map(WidgetResponseDto::fromEntity)
+                .toList();
     }
 
-    @CacheEvict(value = {"widgets", "widgetsByEquipment"}, allEntries = true)
+    @Transactional(readOnly = true)
+    public WidgetResponseDto getWidget(Long userId, Long widgetId) {
+        return WidgetResponseDto.fromEntity(getWidgetOrThrow(widgetId, userId));
+    }
+
     public WidgetResponseDto updateWidget(Long userId, Long widgetId, WidgetRequestDto dto) {
-        log.info("Updating widget with id: {} for user: {}", widgetId, userId);
         DashboardWidget widget = getWidgetOrThrow(widgetId, userId);
+        Dashboard dashboard = getDashboardOrDefault(userId, dto.getDashboardId());
+        Equipment equipment = resolveEquipment(userId, dashboard, dto);
+        Sensor sensor = resolveSensor(userId, equipment, dto);
 
-        String oldEquipmentId = widget.getEquipmentId();
-        String newEquipmentId = dto.getEquipmentId();
-
-        // equipmentId 변경 시 이전 장비 캐시도 무효화
-        boolean equipmentChanged = !oldEquipmentId.equals(newEquipmentId);
-        if (equipmentChanged) {
-            log.debug("Equipment changed from {} to {} - clearing both caches", oldEquipmentId, newEquipmentId);
-        }
-
-        widget.setEquipmentId(newEquipmentId);
+        widget.setDashboard(dashboard);
+        widget.setEquipment(equipment);
+        widget.setSensor(sensor);
         widget.setWidgetType(dto.getWidgetType());
         widget.setTitle(dto.getTitle());
-        widget.setSensorId(dto.getSensorId());
         widget.setChartType(dto.getChartType());
         widget.setDataType(dto.getDataType());
         widget.setUnit(dto.getUnit());
@@ -142,61 +223,42 @@ public class DashboardWidgetService {
         DashboardWidget updatedWidget = widgetRepository.save(widget);
         WidgetResponseDto response = WidgetResponseDto.fromEntity(updatedWidget);
 
-        log.info("Widget updated successfully with id: {} for user: {}", widgetId, userId);
-
-        // WebSocket 메시지 브로드캐스트
+        evictWidgetCaches();
         broadcastWidgetUpdate(WidgetWebSocketMessage.MessageType.WIDGET_UPDATED, response, userId);
-
         return response;
     }
 
-
-    @CacheEvict(value = {"widgets", "widgetsByEquipment"}, allEntries = true)
     public void deleteWidget(Long userId, Long widgetId) {
-        log.info("Deleting widget with id: {} for user: {}", widgetId, userId);
         DashboardWidget widget = getWidgetOrThrow(widgetId, userId);
-
-        String equipmentId = widget.getEquipmentId();
-        Long deletedWidgetId = widget.getId();
+        Long equipmentEntityId = widget.getEquipment() != null ? widget.getEquipment().getEquipmentId() : null;
+        String equipmentId = widget.getEquipment() != null ? widget.getEquipment().getEquipmentName() : null;
 
         widgetRepository.delete(widget);
-        log.info("Widget deleted successfully with id: {} for user: {}", widgetId, userId);
+        widgetRepository.flush();
+        evictWidgetCaches();
 
-        // WebSocket 메시지 브로드캐스트
         WidgetWebSocketMessage wsMessage = WidgetWebSocketMessage.builder()
                 .messageType(WidgetWebSocketMessage.MessageType.WIDGET_DELETED)
-                .widgetId(deletedWidgetId)
+                .widgetId(widgetId)
                 .userId(userId)
+                .equipmentId(equipmentId)
+                .equipmentEntityId(equipmentEntityId)
                 .timestamp(LocalDateTime.now())
                 .build();
 
-        messagingTemplate.convertAndSend(
-            "/topic/user/" + userId + "/widgets",
-            wsMessage
-        );
-        messagingTemplate.convertAndSend(
-            "/topic/equipment/" + equipmentId + "/widgets",
-            wsMessage
-        );
+        messagingTemplate.convertAndSend("/topic/user/" + userId + "/widgets", wsMessage);
+        broadcastToEquipmentTopics(equipmentId, equipmentEntityId, wsMessage);
     }
 
-    @CacheEvict(value = {"widgets", "widgetsByEquipment"}, allEntries = true)
     public List<WidgetResponseDto> updateLayouts(Long userId, WidgetLayoutUpdateDto dto) {
-        log.info("Updating layouts for user: {}", userId);
-
         if (dto.getLayouts() == null || dto.getLayouts().isEmpty()) {
-            log.warn("No layouts provided for user: {}", userId);
-            return widgetRepository.findByUserUserIdOrderByIdAsc(userId)
-                    .stream()
-                    .map(WidgetResponseDto::fromEntity)
-                    .toList();
+            return getMyWidgets(userId);
         }
 
         List<WidgetResponseDto> updatedWidgets = new ArrayList<>();
 
         for (WidgetLayoutUpdateDto.LayoutItem layout : dto.getLayouts()) {
             DashboardWidget widget = getWidgetOrThrow(layout.getWidgetId(), userId);
-
             widget.setPosX(layout.getPosX());
             widget.setPosY(layout.getPosY());
             widget.setWidth(layout.getWidth());
@@ -206,38 +268,46 @@ public class DashboardWidgetService {
             WidgetResponseDto response = WidgetResponseDto.fromEntity(saved);
             updatedWidgets.add(response);
 
-            log.debug("Layout updated for widget id: {}", layout.getWidgetId());
-
-            // 각 위젯별 WebSocket 메시지 브로드캐스트
             broadcastWidgetUpdate(WidgetWebSocketMessage.MessageType.LAYOUT_UPDATED, response, userId);
         }
 
-        log.info("All layouts updated successfully for user: {}", userId);
+        evictWidgetCaches();
         return updatedWidgets;
     }
 
-    /**
-     * 위젯 변경 이벤트를 WebSocket으로 브로드캐스트
-     */
+    private void evictWidgetCaches() {
+        clearCache("widgets");
+        clearCache("widgetsByEquipment");
+    }
+
+    private void clearCache(String cacheName) {
+        Cache cache = cacheManager.getCache(cacheName);
+        if (cache != null) {
+            cache.clear();
+        }
+    }
+
     private void broadcastWidgetUpdate(String messageType, WidgetResponseDto widget, Long userId) {
         WidgetWebSocketMessage wsMessage = WidgetWebSocketMessage.builder()
                 .messageType(messageType)
                 .widgetId(widget.getId())
                 .userId(userId)
+                .equipmentId(widget.getEquipmentId())
+                .equipmentEntityId(widget.getEquipmentEntityId())
                 .widget(widget)
                 .timestamp(LocalDateTime.now())
                 .build();
 
-        // 사용자별 구독 토픽에 브로드캐스트
-        messagingTemplate.convertAndSend(
-            "/topic/user/" + userId + "/widgets",
-            wsMessage
-        );
+        messagingTemplate.convertAndSend("/topic/user/" + userId + "/widgets", wsMessage);
+        broadcastToEquipmentTopics(widget.getEquipmentId(), widget.getEquipmentEntityId(), wsMessage);
+    }
 
-        // 장비별 구독 토픽에도 브로드캐스트
-        messagingTemplate.convertAndSend(
-            "/topic/equipment/" + widget.getEquipmentId() + "/widgets",
-            wsMessage
-        );
+    private void broadcastToEquipmentTopics(String legacyEquipmentId, Long equipmentEntityId, WidgetWebSocketMessage message) {
+        if (legacyEquipmentId != null) {
+            messagingTemplate.convertAndSend("/topic/equipment/" + legacyEquipmentId + "/widgets", message);
+        }
+        if (equipmentEntityId != null) {
+            messagingTemplate.convertAndSend("/topic/equipment-id/" + equipmentEntityId + "/widgets", message);
+        }
     }
 }
