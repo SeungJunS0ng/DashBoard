@@ -10,8 +10,10 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.AuthenticationCredentialsNotFoundException;
 import org.springframework.security.authorization.AuthorizationDeniedException;
+import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.method.annotation.HandlerMethodValidationException;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.context.request.WebRequest;
@@ -196,6 +198,42 @@ public class GlobalExceptionHandler {
                 "입력값 검증 실패",
                 ErrorCode.INVALID_INPUT.getCode(),
                 fieldName,
+                HttpStatus.BAD_REQUEST.value()
+        );
+        response.setPath(extractPath(request));
+
+        return new ResponseEntity<>(response, HttpStatus.BAD_REQUEST);
+    }
+
+    /**
+     * JSON 본문 파싱 실패 처리
+     */
+    @ExceptionHandler(HttpMessageNotReadableException.class)
+    public ResponseEntity<ApiResponse<?>> handleHttpMessageNotReadableException(HttpMessageNotReadableException ex, WebRequest request) {
+        log.warn("HTTP Message Not Readable: {}", ex.getMessage());
+
+        ApiResponse<?> response = ApiResponse.error(
+                "요청 본문을 읽을 수 없습니다",
+                ErrorCode.INVALID_INPUT.getCode(),
+                ex.getMostSpecificCause().getMessage(),
+                HttpStatus.BAD_REQUEST.value()
+        );
+        response.setPath(extractPath(request));
+
+        return new ResponseEntity<>(response, HttpStatus.BAD_REQUEST);
+    }
+
+    /**
+     * 쿼리 파라미터 및 경로 변수 타입 변환 실패 처리
+     */
+    @ExceptionHandler(MethodArgumentTypeMismatchException.class)
+    public ResponseEntity<ApiResponse<?>> handleMethodArgumentTypeMismatchException(MethodArgumentTypeMismatchException ex, WebRequest request) {
+        log.warn("Method Argument Type Mismatch - name: {}, value: {}", ex.getName(), ex.getValue());
+
+        ApiResponse<?> response = ApiResponse.error(
+                "요청 파라미터 형식이 올바르지 않습니다",
+                ErrorCode.INVALID_INPUT.getCode(),
+                ex.getName() + ": " + ex.getValue(),
                 HttpStatus.BAD_REQUEST.value()
         );
         response.setPath(extractPath(request));

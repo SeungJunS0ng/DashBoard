@@ -2,6 +2,7 @@
 package com.festapp.dashboard.dashboard.widget.dto;
 
 import io.swagger.v3.oas.annotations.media.Schema;
+import jakarta.validation.Valid;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotNull;
 import lombok.AllArgsConstructor;
@@ -24,7 +25,7 @@ import java.util.List;
 public class WidgetLayoutUpdateDto {
 
     @Schema(description = "업데이트할 위젯 레이아웃 정보 목록", required = true)
-    private List<LayoutItem> layouts;
+    private List<@Valid LayoutItem> layouts;
 
     @Data
     @NoArgsConstructor
