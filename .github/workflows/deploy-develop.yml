@@ -32,18 +32,19 @@ jobs:
 
       - name: Prepare SSH key
         run: |
-          mkdir -p ~/.ssh
-          printf '%s\n' "${{ secrets.EC2_SSH_KEY }}" > ~/.ssh/dashboard-key.pem
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "${{ secrets.EC2_SSH_KEY }}" | tr -d '\r' > ~/.ssh/dashboard-key.pem
           chmod 600 ~/.ssh/dashboard-key.pem
-          ssh-keyscan -H "${{ secrets.EC2_HOST }}" >> ~/.ssh/known_hosts
+          ssh-keygen -y -f ~/.ssh/dashboard-key.pem > /dev/null
+          ssh-keyscan -T 30 -H "${{ secrets.EC2_HOST }}" >> ~/.ssh/known_hosts || true
 
       - name: Upload jar to EC2
         run: |
           JAR_PATH="$(ls build/libs/*.jar | head -n 1)"
-          scp -i ~/.ssh/dashboard-key.pem "$JAR_PATH" \
+          scp -o StrictHostKeyChecking=no -i ~/.ssh/dashboard-key.pem "$JAR_PATH" \
             "${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }}:${{ secrets.EC2_APP_PATH }}"
 
       - name: Restart backend service
         run: |
-          ssh -i ~/.ssh/dashboard-key.pem "${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }}" \
+          ssh -o StrictHostKeyChecking=no -i ~/.ssh/dashboard-key.pem "${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }}" \
             "sudo systemctl restart ${{ secrets.EC2_SERVICE_NAME }} && sleep 10 && sudo systemctl is-active ${{ secrets.EC2_SERVICE_NAME }}"
