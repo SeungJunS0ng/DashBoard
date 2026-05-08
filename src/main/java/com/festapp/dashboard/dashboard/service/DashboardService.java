@@ -6,6 +6,13 @@ import com.festapp.dashboard.dashboard.dto.DashboardRequest;
 import com.festapp.dashboard.dashboard.dto.DashboardResponse;
 import com.festapp.dashboard.dashboard.entity.Dashboard;
 import com.festapp.dashboard.dashboard.repository.DashboardRepository;
+import com.festapp.dashboard.dashboard.widget.repository.DashboardWidgetRepository;
+import com.festapp.dashboard.equipment.entity.Equipment;
+import com.festapp.dashboard.equipment.repository.EquipmentRepository;
+import com.festapp.dashboard.telemetry.entity.Sensor;
+import com.festapp.dashboard.telemetry.repository.SensorNumericHistoryRepository;
+import com.festapp.dashboard.telemetry.repository.SensorRepository;
+import com.festapp.dashboard.telemetry.repository.SensorStringHistoryRepository;
 import com.festapp.dashboard.user.entity.User;
 import com.festapp.dashboard.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
@@ -21,6 +28,11 @@ public class DashboardService {
 
     private final DashboardRepository dashboardRepository;
     private final UserRepository userRepository;
+    private final EquipmentRepository equipmentRepository;
+    private final SensorRepository sensorRepository;
+    private final SensorNumericHistoryRepository sensorNumericHistoryRepository;
+    private final SensorStringHistoryRepository sensorStringHistoryRepository;
+    private final DashboardWidgetRepository dashboardWidgetRepository;
 
     public DashboardResponse createDashboard(Long userId, DashboardRequest request) {
         User user = getUserOrThrow(userId);
@@ -54,6 +66,22 @@ public class DashboardService {
 
     public void deleteDashboard(Long userId, Long dashboardId) {
         Dashboard dashboard = getDashboardOrThrow(userId, dashboardId);
+        List<Equipment> equipment = equipmentRepository.findByDashboardDashboardIdOrderByEquipmentIdAsc(dashboardId);
+
+        dashboardWidgetRepository.deleteAllInBatch(
+                dashboardWidgetRepository.findByDashboardDashboardIdOrderByWidgetIdAsc(dashboardId)
+        );
+
+        for (Equipment item : equipment) {
+            List<Sensor> sensors = sensorRepository.findByEquipmentEquipmentIdOrderBySensorIdAsc(item.getEquipmentId());
+            for (Sensor sensor : sensors) {
+                sensorNumericHistoryRepository.deleteBySensorId(sensor.getSensorId());
+                sensorStringHistoryRepository.deleteBySensorId(sensor.getSensorId());
+            }
+            sensorRepository.deleteAllInBatch(sensors);
+        }
+
+        equipmentRepository.deleteAllInBatch(equipment);
         dashboardRepository.delete(dashboard);
     }
 

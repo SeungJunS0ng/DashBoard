@@ -6,17 +6,21 @@ import com.festapp.dashboard.auth.exception.AuthException;
 import com.festapp.dashboard.dashboard.widget.exception.WidgetNotFoundException;
 import com.festapp.dashboard.dashboard.widget.exception.WidgetAccessDeniedException;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.security.authentication.AuthenticationCredentialsNotFoundException;
 import org.springframework.security.authorization.AuthorizationDeniedException;
-import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
-import org.springframework.web.method.annotation.HandlerMethodValidationException;
-import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.HttpMediaTypeNotSupportedException;
+import org.springframework.web.HttpRequestMethodNotSupportedException;
 import org.springframework.web.context.request.WebRequest;
+import org.springframework.web.method.annotation.HandlerMethodValidationException;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
+import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 import java.time.LocalDateTime;
 
@@ -239,6 +243,105 @@ public class GlobalExceptionHandler {
         response.setPath(extractPath(request));
 
         return new ResponseEntity<>(response, HttpStatus.BAD_REQUEST);
+    }
+
+    /**
+     * 잘못된 enum 값 등 일반 인자 오류 처리
+     */
+    @ExceptionHandler(IllegalArgumentException.class)
+    public ResponseEntity<ApiResponse<?>> handleIllegalArgumentException(IllegalArgumentException ex, WebRequest request) {
+        log.warn("Illegal Argument Exception: {}", ex.getMessage());
+
+        ApiResponse<?> response = ApiResponse.error(
+                "요청값이 올바르지 않습니다",
+                ErrorCode.INVALID_INPUT.getCode(),
+                ex.getMessage(),
+                HttpStatus.BAD_REQUEST.value()
+        );
+        response.setPath(extractPath(request));
+
+        return new ResponseEntity<>(response, HttpStatus.BAD_REQUEST);
+    }
+
+    /**
+     * 존재하지 않는 API 경로 처리
+     */
+    @ExceptionHandler(NoResourceFoundException.class)
+    public ResponseEntity<ApiResponse<?>> handleNoResourceFoundException(NoResourceFoundException ex, WebRequest request) {
+        log.warn("No Resource Found: {}", ex.getMessage());
+
+        ApiResponse<?> response = ApiResponse.error(
+                ErrorCode.RESOURCE_NOT_FOUND.getMessage(),
+                ErrorCode.RESOURCE_NOT_FOUND.getCode(),
+                ex.getMessage(),
+                HttpStatus.NOT_FOUND.value()
+        );
+        response.setPath(extractPath(request));
+
+        return new ResponseEntity<>(response, HttpStatus.NOT_FOUND);
+    }
+
+    /**
+     * 지원하지 않는 HTTP 메서드 처리
+     */
+    @ExceptionHandler(HttpRequestMethodNotSupportedException.class)
+    public ResponseEntity<ApiResponse<?>> handleHttpRequestMethodNotSupportedException(
+            HttpRequestMethodNotSupportedException ex,
+            WebRequest request
+    ) {
+        log.warn("HTTP Method Not Supported: {}", ex.getMessage());
+
+        ApiResponse<?> response = ApiResponse.error(
+                "지원하지 않는 HTTP 메서드입니다",
+                ErrorCode.INVALID_INPUT.getCode(),
+                ex.getMessage(),
+                HttpStatus.METHOD_NOT_ALLOWED.value()
+        );
+        response.setPath(extractPath(request));
+
+        return new ResponseEntity<>(response, HttpStatus.METHOD_NOT_ALLOWED);
+    }
+
+    /**
+     * 지원하지 않는 Content-Type 처리
+     */
+    @ExceptionHandler(HttpMediaTypeNotSupportedException.class)
+    public ResponseEntity<ApiResponse<?>> handleHttpMediaTypeNotSupportedException(
+            HttpMediaTypeNotSupportedException ex,
+            WebRequest request
+    ) {
+        log.warn("HTTP Media Type Not Supported: {}", ex.getMessage());
+
+        ApiResponse<?> response = ApiResponse.error(
+                "지원하지 않는 Content-Type입니다",
+                ErrorCode.INVALID_INPUT.getCode(),
+                ex.getMessage(),
+                HttpStatus.UNSUPPORTED_MEDIA_TYPE.value()
+        );
+        response.setPath(extractPath(request));
+
+        return new ResponseEntity<>(response, HttpStatus.UNSUPPORTED_MEDIA_TYPE);
+    }
+
+    /**
+     * DB 제약조건 위반 처리
+     */
+    @ExceptionHandler(DataIntegrityViolationException.class)
+    public ResponseEntity<ApiResponse<?>> handleDataIntegrityViolationException(
+            DataIntegrityViolationException ex,
+            WebRequest request
+    ) {
+        log.warn("Data Integrity Violation: {}", ex.getMostSpecificCause().getMessage());
+
+        ApiResponse<?> response = ApiResponse.error(
+                ErrorCode.RESOURCE_ALREADY_EXISTS.getMessage(),
+                ErrorCode.RESOURCE_ALREADY_EXISTS.getCode(),
+                ex.getMostSpecificCause().getMessage(),
+                HttpStatus.CONFLICT.value()
+        );
+        response.setPath(extractPath(request));
+
+        return new ResponseEntity<>(response, HttpStatus.CONFLICT);
     }
 
     /**
