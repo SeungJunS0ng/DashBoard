@@ -20,7 +20,7 @@
         </rollingPolicy>
     </appender>
 
-    <logger name="com.festapp.dashboar" level="DEBUG"/>
+    <logger name="com.festapp.dashboard" level="DEBUG"/>
     <logger name="org.springframework.security" level="DEBUG"/>
     <logger name="org.springframework.web" level="INFO"/>
 
