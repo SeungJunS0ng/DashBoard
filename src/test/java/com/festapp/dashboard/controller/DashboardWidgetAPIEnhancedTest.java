@@ -187,10 +187,10 @@ public class DashboardWidgetAPIEnhancedTest {
         }
 
         @Test
-        @DisplayName("레이아웃 업데이트 시 필수 필드(widgetId) 누락 시 404 Not Found")
+        @DisplayName("레이아웃 업데이트 시 필수 필드(widgetId) 누락 시 400 Bad Request")
         void testUpdateLayoutMissingWidgetId() throws Exception {
             // JSON으로 직접 보내서 widgetId를 누락
-            // widgetId가 null이 되어 위젯을 찾을 수 없으므로 404 반환
+            // @Valid 검증에서 widgetId 필수 조건이 먼저 실패하므로 400 반환
             String requestJson = "{\n" +
                     "  \"layouts\": [\n" +
                     "    {\n" +
@@ -206,8 +206,8 @@ public class DashboardWidgetAPIEnhancedTest {
                     .header("Authorization", "Bearer " + testAccessToken1)
                     .contentType(MediaType.APPLICATION_JSON)
                     .content(requestJson))
-                    .andExpect(status().isNotFound())
-                    .andExpect(jsonPath("$.errorCode", is(4201)));
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.errorCode", is(4100)));
         }
     }
 

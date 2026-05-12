@@ -27,7 +27,11 @@ public class RealTimeDataService {
 
     // 1. Redis에 장비의 최신 상태(Snapshot) 업데이트
     String redisKey = "equipment:current:" + equipmentId;
-    redisTemplate.opsForValue().set(redisKey, payload);
+    try {
+      redisTemplate.opsForValue().set(redisKey, payload);
+    } catch (Exception e) {
+      log.warn("Redis snapshot update skipped for equipment {}: {}", equipmentId, e.getMessage());
+    }
 
     // 2. 프론트엔드(WebSocket)로 실시간 데이터 브로드캐스팅
     // 프론트엔드는 /topic/equipment/CVD-CHAMBER-04 등을 구독

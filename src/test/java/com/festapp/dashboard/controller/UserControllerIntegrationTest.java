@@ -181,7 +181,7 @@ public class UserControllerIntegrationTest {
     @DisplayName("GET /api/users/{userId} - 존재하지 않는 사용자")
     void testGetUserByIdNotFound() throws Exception {
         mockMvc.perform(get("/api/users/{userId}", 999L)
-                .header("Authorization", "Bearer " + testUserToken)
+                .header("Authorization", "Bearer " + adminToken)
                 .contentType(MediaType.APPLICATION_JSON))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.success").value(false))
