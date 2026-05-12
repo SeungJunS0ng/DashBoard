@@ -19,7 +19,13 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
   @Override
   public void registerStompEndpoints(StompEndpointRegistry registry) {
     registry.addEndpoint("/ws-stomp") // 최초 웹소켓 연결 주소
-        .setAllowedOriginPatterns("*") // CORS 허용
+        .setAllowedOriginPatterns(
+            "http://localhost:*",
+            "http://127.0.0.1:*",
+            "http://52.79.114.44:*",
+            "https://*.vercel.app",
+            "https://*.netlify.app"
+        ) // SockJS credentials 요청은 wildcard Origin("*")을 사용할 수 없습니다.
         .withSockJS();
   }
 }
