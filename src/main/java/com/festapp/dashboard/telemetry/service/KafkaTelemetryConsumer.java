@@ -19,7 +19,7 @@ public class KafkaTelemetryConsumer {
   private final RealTimeDataService realTimeDataService;
 
   @KafkaListener(
-      topics = "${app.kafka.sensor-topic}",
+      topics = "${app.kafka.sensor-topic:uemd.sensor.data}",
       groupId = "${spring.kafka.consumer.group-id:dashboard-backend}")
   public void consume(String message) {
     try {
