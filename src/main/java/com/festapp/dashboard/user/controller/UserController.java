@@ -43,6 +43,7 @@ public class UserController {
     @GetMapping("/{userId}")
     @Operation(summary = "사용자 정보 조회", description = "특정 사용자 정보 조회")
     @SecurityRequirement(name = "bearer-jwt")
+    @PreAuthorize("hasRole('ADMIN') or #userId == principal.userId")
     public ResponseEntity<ApiResponse<UserInfoResponse>> getUserById(
             @PathVariable @NotNull(message = "userId는 필수입니다") Long userId) {
         UserInfoResponse response = userService.getUserById(userId);
@@ -52,6 +53,7 @@ public class UserController {
     @GetMapping("/username/{username}")
     @Operation(summary = "사용자명으로 조회", description = "사용자명으로 사용자 정보 조회")
     @SecurityRequirement(name = "bearer-jwt")
+    @PreAuthorize("hasRole('ADMIN') or #username == principal.username")
     public ResponseEntity<ApiResponse<UserInfoResponse>> getUserByUsername(
             @PathVariable @NotNull(message = "username은 필수입니다") String username) {
         UserInfoResponse response = userService.getUserByUsername(username);
