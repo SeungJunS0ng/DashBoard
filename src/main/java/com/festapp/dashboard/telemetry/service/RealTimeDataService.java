@@ -18,22 +18,25 @@ public class RealTimeDataService {
   private final RedisTemplate<String, Object> redisTemplate;
   private final SensorHistoryService sensorHistoryService;
 
-  public void processSensorData(SensorDataPayload payload) {
+  public boolean processSensorData(SensorDataPayload payload) {
     if (payload == null) {
       log.warn("Skipping telemetry processing because payload is null");
-      return;
+      return false;
     }
 
     String equipmentId = payload.getEquipmentId();
     Long equipmentEntityId = payload.getEquipmentEntityId();
     if (equipmentEntityId == null && (equipmentId == null || equipmentId.isBlank())) {
       log.warn("Skipping telemetry processing because equipment reference is missing");
-      return;
+      return false;
     }
 
     autoTagging(payload.getSensors());
 
-    sensorHistoryService.persistTelemetryPayload(payload);
+    if (!sensorHistoryService.persistTelemetryPayload(payload)) {
+      log.warn("Skipping telemetry snapshot and broadcast because equipment could not be resolved: {}", resolveLogEquipment(payload));
+      return false;
+    }
 
     try {
       updateCurrentSnapshot(payload);
@@ -51,6 +54,7 @@ public class RealTimeDataService {
     }
 
     log.debug("Data processed and broadcasted for equipment: {}", resolveLogEquipment(payload));
+    return true;
   }
 
   private void updateCurrentSnapshot(SensorDataPayload payload) {

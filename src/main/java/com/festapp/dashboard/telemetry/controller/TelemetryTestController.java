@@ -30,7 +30,10 @@ public class TelemetryTestController {
     @Operation(summary = "실시간 센서 데이터 테스트 입력", description = "프론트/테스트 사용 시점: Kafka 없이도 DB 저장, Redis 최신값 갱신, WebSocket 브로드캐스트 흐름을 검증할 때 호출합니다.")
     public ResponseEntity<ApiResponse<SensorDataPayload>> publishTestTelemetry(
             @Valid @RequestBody SensorDataPayload payload) {
-        realTimeDataService.processSensorData(payload);
+        if (!realTimeDataService.processSensorData(payload)) {
+            return ResponseEntity.status(HttpStatus.ACCEPTED)
+                    .body(ApiResponse.success("Telemetry 대상 장비가 없어 저장과 브로드캐스트를 건너뛰었습니다", payload, HttpStatus.ACCEPTED.value()));
+        }
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(ApiResponse.success("Telemetry 테스트 데이터 처리 성공", payload, HttpStatus.CREATED.value()));
     }

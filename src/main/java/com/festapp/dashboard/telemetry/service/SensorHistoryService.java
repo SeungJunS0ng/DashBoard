@@ -65,16 +65,16 @@ public class SensorHistoryService {
     }
 
     @Transactional
-    public void persistTelemetryPayload(SensorDataPayload payload) {
+    public boolean persistTelemetryPayload(SensorDataPayload payload) {
         Equipment equipment = resolveEquipment(payload);
 
         if (equipment == null) {
-            return;
+            return false;
         }
 
         LocalDateTime recordedAt = parseTimestamp(payload.getTimestamp());
         if (payload.getSensors() == null) {
-            return;
+            return true;
         }
 
         for (SensorDataPayload.SensorDetails details : payload.getSensors()) {
@@ -103,6 +103,7 @@ public class SensorHistoryService {
                 );
             }
         }
+        return true;
     }
 
     private Equipment resolveEquipment(SensorDataPayload payload) {
