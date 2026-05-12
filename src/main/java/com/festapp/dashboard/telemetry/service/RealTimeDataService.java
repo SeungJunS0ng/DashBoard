@@ -3,7 +3,6 @@ package com.festapp.dashboard.telemetry.service;
 import com.festapp.dashboard.telemetry.dto.SensorDataPayload;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.amqp.rabbit.annotation.RabbitListener;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
@@ -19,7 +18,6 @@ public class RealTimeDataService {
   private final RedisTemplate<String, Object> redisTemplate;
   private final SensorHistoryService sensorHistoryService;
 
-  @RabbitListener(queues = "uemd.sensor.queue")
   public void processSensorData(SensorDataPayload payload) {
 
     autoTagging(payload.getSensors());
