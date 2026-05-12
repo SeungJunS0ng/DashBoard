@@ -66,16 +66,9 @@ public class SensorHistoryService {
 
     @Transactional
     public void persistTelemetryPayload(SensorDataPayload payload) {
-        if (payload.getEquipmentId() == null || payload.getEquipmentId().isBlank()) {
-            log.warn("Skipping telemetry persistence because equipmentId is missing");
-            return;
-        }
-
-        Equipment equipment = equipmentRepository.findFirstByEquipmentName(payload.getEquipmentId())
-                .orElse(null);
+        Equipment equipment = resolveEquipment(payload);
 
         if (equipment == null) {
-            log.warn("Skipping telemetry persistence because equipment is not registered: {}", payload.getEquipmentId());
             return;
         }
 
@@ -110,6 +103,46 @@ public class SensorHistoryService {
                 );
             }
         }
+    }
+
+    private Equipment resolveEquipment(SensorDataPayload payload) {
+        if (payload.getEquipmentEntityId() != null) {
+            Equipment equipment = equipmentRepository.findById(payload.getEquipmentEntityId()).orElse(null);
+            if (equipment == null) {
+                log.warn("Skipping telemetry persistence because equipmentEntityId is not registered: {}", payload.getEquipmentEntityId());
+                return null;
+            }
+            if (payload.getEquipmentId() != null
+                    && !payload.getEquipmentId().isBlank()
+                    && !equipment.getEquipmentName().equals(payload.getEquipmentId())) {
+                log.warn(
+                        "Skipping telemetry persistence because equipmentEntityId {} does not match equipmentId '{}'",
+                        payload.getEquipmentEntityId(),
+                        payload.getEquipmentId()
+                );
+                return null;
+            }
+            return equipment;
+        }
+
+        if (payload.getEquipmentId() == null || payload.getEquipmentId().isBlank()) {
+            log.warn("Skipping telemetry persistence because equipment reference is missing");
+            return null;
+        }
+
+        List<Equipment> matches = equipmentRepository.findByEquipmentName(payload.getEquipmentId());
+        if (matches.isEmpty()) {
+            log.warn("Skipping telemetry persistence because equipment is not registered: {}", payload.getEquipmentId());
+            return null;
+        }
+        if (matches.size() > 1) {
+            log.warn(
+                    "Skipping telemetry persistence because equipmentId '{}' is ambiguous. Use equipmentEntityId instead.",
+                    payload.getEquipmentId()
+            );
+            return null;
+        }
+        return matches.get(0);
     }
 
     public List<SensorNumericHistoryResponse> getNumericHistory(Long userId, Long sensorId, LocalDateTime from, LocalDateTime to) {

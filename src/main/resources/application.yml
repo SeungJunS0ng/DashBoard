@@ -27,9 +27,9 @@ spring:
 
   data:
     redis:
-      host: localhost
-      port: 6379
-      timeout: 2000ms
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      timeout: ${REDIS_TIMEOUT:2000ms}
 
   cache:
     type: redis
@@ -53,6 +53,8 @@ spring:
       missing-topics-fatal: false
 
 app:
+  cors:
+    allowed-origin-patterns: ${CORS_ALLOWED_ORIGIN_PATTERNS:http://localhost:*,http://127.0.0.1:*,http://43.201.141.9:*,https://*.vercel.app,https://*.netlify.app}
   rabbit:
     enabled: ${RABBIT_ENABLED:true}
   kafka:

@@ -1,5 +1,7 @@
 package com.festapp.dashboard.telemetry.config;
 
+import com.festapp.dashboard.common.config.CorsProperties;
+import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.messaging.simp.config.MessageBrokerRegistry;
 import org.springframework.web.socket.config.annotation.EnableWebSocketMessageBroker;
@@ -8,7 +10,10 @@ import org.springframework.web.socket.config.annotation.WebSocketMessageBrokerCo
 
 @Configuration
 @EnableWebSocketMessageBroker
+@RequiredArgsConstructor
 public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
+
+  private final CorsProperties corsProperties;
 
   @Override
   public void configureMessageBroker(MessageBrokerRegistry config) {
@@ -19,13 +24,8 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
   @Override
   public void registerStompEndpoints(StompEndpointRegistry registry) {
     registry.addEndpoint("/ws-stomp") // 최초 웹소켓 연결 주소
-        .setAllowedOriginPatterns(
-            "http://localhost:*",
-            "http://127.0.0.1:*",
-            "http://43.201.141.9:*",
-            "https://*.vercel.app",
-            "https://*.netlify.app"
-        ) // SockJS credentials 요청은 wildcard Origin("*")을 사용할 수 없습니다.
+        .setAllowedOriginPatterns(corsProperties.getAllowedOriginPatterns().toArray(String[]::new))
+        // SockJS credentials 요청은 wildcard Origin("*")을 사용할 수 없습니다.
         .withSockJS();
   }
 }

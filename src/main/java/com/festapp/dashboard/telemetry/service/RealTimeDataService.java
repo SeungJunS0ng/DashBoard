@@ -19,25 +19,54 @@ public class RealTimeDataService {
   private final SensorHistoryService sensorHistoryService;
 
   public void processSensorData(SensorDataPayload payload) {
+    if (payload == null) {
+      log.warn("Skipping telemetry processing because payload is null");
+      return;
+    }
+
+    String equipmentId = payload.getEquipmentId();
+    Long equipmentEntityId = payload.getEquipmentEntityId();
+    if (equipmentEntityId == null && (equipmentId == null || equipmentId.isBlank())) {
+      log.warn("Skipping telemetry processing because equipment reference is missing");
+      return;
+    }
 
     autoTagging(payload.getSensors());
 
-    String equipmentId = payload.getEquipmentId();
     sensorHistoryService.persistTelemetryPayload(payload);
 
-    // 1. Redis에 장비의 최신 상태(Snapshot) 업데이트
-    String redisKey = "equipment:current:" + equipmentId;
     try {
-      redisTemplate.opsForValue().set(redisKey, payload);
+      updateCurrentSnapshot(payload);
     } catch (Exception e) {
-      log.warn("Redis snapshot update skipped for equipment {}: {}", equipmentId, e.getMessage());
+      log.warn("Redis snapshot update skipped for equipment {}: {}", resolveLogEquipment(payload), e.getMessage());
     }
 
     // 2. 프론트엔드(WebSocket)로 실시간 데이터 브로드캐스팅
     // 프론트엔드는 /topic/equipment/CVD-CHAMBER-04 등을 구독
-    messagingTemplate.convertAndSend("/topic/equipment/" + equipmentId, payload);
+    if (equipmentId != null && !equipmentId.isBlank()) {
+      messagingTemplate.convertAndSend("/topic/equipment/" + equipmentId, payload);
+    }
+    if (equipmentEntityId != null) {
+      messagingTemplate.convertAndSend("/topic/equipment-id/" + equipmentEntityId, payload);
+    }
 
-    log.debug("Data processed and broadcasted for equipment: {}", equipmentId);
+    log.debug("Data processed and broadcasted for equipment: {}", resolveLogEquipment(payload));
+  }
+
+  private void updateCurrentSnapshot(SensorDataPayload payload) {
+    if (payload.getEquipmentEntityId() != null) {
+      redisTemplate.opsForValue().set("equipment:current:id:" + payload.getEquipmentEntityId(), payload);
+    }
+    if (payload.getEquipmentId() != null && !payload.getEquipmentId().isBlank()) {
+      redisTemplate.opsForValue().set("equipment:current:" + payload.getEquipmentId(), payload);
+    }
+  }
+
+  private String resolveLogEquipment(SensorDataPayload payload) {
+    if (payload.getEquipmentEntityId() != null) {
+      return "id:" + payload.getEquipmentEntityId();
+    }
+    return payload.getEquipmentId();
   }
 
   private void autoTagging(List<SensorDataPayload.SensorDetails> sensors) {

@@ -16,6 +16,8 @@ public interface EquipmentRepository extends JpaRepository<Equipment, Long> {
 
     Optional<Equipment> findByEquipmentNameAndDashboardDashboardId(String equipmentName, Long dashboardId);
 
+    List<Equipment> findByEquipmentName(String equipmentName);
+
     Optional<Equipment> findFirstByEquipmentName(String equipmentName);
 
     Optional<Equipment> findFirstByEquipmentNameAndDashboardUserUserId(String equipmentName, Long userId);

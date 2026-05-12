@@ -91,6 +91,7 @@ class RealTimeDataServiceIntegrationTest {
     @DisplayName("숫자형과 문자형 센서 이력이 함께 저장된다")
     void persistNumericAndStringHistory() {
         SensorDataPayload payload = SensorDataPayload.builder()
+                .equipmentEntityId(equipment.getEquipmentId())
                 .equipmentId("CVD-CHAMBER-04")
                 .timestamp("2026-04-17T10:00:00Z")
                 .status("RUN")
@@ -120,6 +121,55 @@ class RealTimeDataServiceIntegrationTest {
     }
 
     @Test
+    @DisplayName("장비명이 중복되어도 equipmentEntityId가 있으면 해당 장비에 저장된다")
+    void persistByEquipmentEntityIdWhenEquipmentNameIsDuplicated() {
+        Equipment duplicatedNameEquipment = createDuplicatedNameEquipment();
+
+        SensorDataPayload payload = SensorDataPayload.builder()
+                .equipmentEntityId(duplicatedNameEquipment.getEquipmentId())
+                .equipmentId("CVD-CHAMBER-04")
+                .timestamp("2026-04-17T10:00:00Z")
+                .status("RUN")
+                .sensors(List.of(
+                        SensorDataPayload.SensorDetails.builder()
+                                .sensorId("Pressure_0")
+                                .value(2.4)
+                                .unit("bar")
+                                .build()
+                ))
+                .build();
+
+        realTimeDataService.processSensorData(payload);
+
+        assertThat(sensorRepository.findByEquipmentEquipmentIdOrderBySensorIdAsc(equipment.getEquipmentId())).isEmpty();
+        assertThat(sensorRepository.findByEquipmentEquipmentIdOrderBySensorIdAsc(duplicatedNameEquipment.getEquipmentId())).hasSize(1);
+    }
+
+    @Test
+    @DisplayName("장비명이 중복된 레거시 payload는 잘못 저장하지 않고 건너뛴다")
+    void skipAmbiguousLegacyEquipmentName() {
+        createDuplicatedNameEquipment();
+
+        SensorDataPayload payload = SensorDataPayload.builder()
+                .equipmentId("CVD-CHAMBER-04")
+                .timestamp("2026-04-17T10:00:00Z")
+                .status("RUN")
+                .sensors(List.of(
+                        SensorDataPayload.SensorDetails.builder()
+                                .sensorId("Pressure_0")
+                                .value(2.4)
+                                .unit("bar")
+                                .build()
+                ))
+                .build();
+
+        realTimeDataService.processSensorData(payload);
+
+        assertThat(sensorRepository.findAll()).isEmpty();
+        assertThat(sensorNumericHistoryRepository.findAll()).isEmpty();
+    }
+
+    @Test
     @DisplayName("등록되지 않은 장비는 이력 저장을 건너뛴다")
     void skipUnknownEquipment() {
         SensorDataPayload payload = SensorDataPayload.builder()
@@ -138,5 +188,28 @@ class RealTimeDataServiceIntegrationTest {
 
         assertThat(sensorRepository.findAll()).isEmpty();
         assertThat(sensorNumericHistoryRepository.findAll()).isEmpty();
+    }
+
+    private Equipment createDuplicatedNameEquipment() {
+        User anotherUser = userRepository.save(User.builder()
+                .username("another-telemetry-user")
+                .email("another-telemetry@example.com")
+                .password("encoded")
+                .fullName("Another Telemetry User")
+                .role(User.Role.USER)
+                .isActive(true)
+                .build());
+
+        Dashboard anotherDashboard = dashboardRepository.save(Dashboard.builder()
+                .dashboardName("Another Telemetry Dashboard")
+                .description("Another Telemetry Dashboard")
+                .user(anotherUser)
+                .build());
+
+        return equipmentRepository.save(Equipment.builder()
+                .equipmentName("CVD-CHAMBER-04")
+                .field("CVD")
+                .dashboard(anotherDashboard)
+                .build());
     }
 }

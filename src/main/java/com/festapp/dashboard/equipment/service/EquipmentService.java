@@ -165,7 +165,10 @@ public class EquipmentService {
     }
 
     private SensorDataPayload getCurrentPayload(Equipment equipment) {
-        Object cached = redisTemplate.opsForValue().get("equipment:current:" + equipment.getEquipmentName());
+        Object cached = redisTemplate.opsForValue().get("equipment:current:id:" + equipment.getEquipmentId());
+        if (!(cached instanceof SensorDataPayload)) {
+            cached = redisTemplate.opsForValue().get("equipment:current:" + equipment.getEquipmentName());
+        }
         return cached instanceof SensorDataPayload payload ? payload : null;
     }
 

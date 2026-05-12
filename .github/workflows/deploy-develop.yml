@@ -25,10 +25,10 @@ jobs:
           distribution: corretto
           java-version: "21"
 
-      - name: Build boot jar
+      - name: Test and build boot jar
         run: |
           chmod +x ./gradlew
-          ./gradlew clean bootJar
+          ./gradlew clean test bootJar
 
       - name: Prepare SSH key
         run: |
@@ -47,4 +47,14 @@ jobs:
       - name: Restart backend service
         run: |
           ssh -o StrictHostKeyChecking=no -i ~/.ssh/dashboard-key.pem "${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }}" \
-            "sudo systemctl restart ${{ secrets.EC2_SERVICE_NAME }} && sleep 10 && sudo systemctl is-active ${{ secrets.EC2_SERVICE_NAME }}"
+            "sudo systemctl restart ${{ secrets.EC2_SERVICE_NAME }} && \
+             for i in {1..36}; do \
+               if curl -fsS http://127.0.0.1:8080/api/public/health >/dev/null; then \
+                 sudo systemctl is-active ${{ secrets.EC2_SERVICE_NAME }}; \
+                 exit 0; \
+               fi; \
+               sleep 5; \
+             done; \
+             sudo systemctl status ${{ secrets.EC2_SERVICE_NAME }} --no-pager; \
+             sudo journalctl -u ${{ secrets.EC2_SERVICE_NAME }} -n 120 --no-pager; \
+             exit 1"

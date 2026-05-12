@@ -3,6 +3,7 @@ package com.festapp.dashboard.common.security;
 
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.authentication.AnonymousAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
 
@@ -20,7 +21,7 @@ public class SecurityContextHelper {
      */
     public static Long getCurrentUserId() {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        if (authentication == null || !authentication.isAuthenticated()) {
+        if (isAnonymous(authentication)) {
             log.warn("사용자가 인증되지 않았습니다");
             throw new IllegalStateException("사용자가 인증되지 않았습니다");
         }
@@ -43,7 +44,7 @@ public class SecurityContextHelper {
      */
     public static String getCurrentUsername() {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        if (authentication == null || !authentication.isAuthenticated()) {
+        if (isAnonymous(authentication)) {
             log.warn("사용자가 인증되지 않았습니다");
             throw new IllegalStateException("사용자가 인증되지 않았습니다");
         }
@@ -66,7 +67,7 @@ public class SecurityContextHelper {
      */
     public static String getCurrentRole() {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        if (authentication == null || !authentication.isAuthenticated()) {
+        if (isAnonymous(authentication)) {
             log.warn("사용자가 인증되지 않았습니다");
             throw new IllegalStateException("사용자가 인증되지 않았습니다");
         }
@@ -89,7 +90,7 @@ public class SecurityContextHelper {
      */
     public static CustomUserDetails getCurrentUserDetails() {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        if (authentication == null || !authentication.isAuthenticated()) {
+        if (isAnonymous(authentication)) {
             log.warn("사용자가 인증되지 않았습니다");
             throw new IllegalStateException("사용자가 인증되지 않았습니다");
         }
@@ -110,6 +111,12 @@ public class SecurityContextHelper {
      */
     public static boolean isAuthenticated() {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        return authentication != null && authentication.isAuthenticated();
+        return !isAnonymous(authentication);
+    }
+
+    private static boolean isAnonymous(Authentication authentication) {
+        return authentication == null
+                || !authentication.isAuthenticated()
+                || authentication instanceof AnonymousAuthenticationToken;
     }
 }
