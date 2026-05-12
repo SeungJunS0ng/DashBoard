@@ -51,6 +51,18 @@ public class EquipmentService {
     }
 
     @Transactional(readOnly = true)
+    public List<EquipmentResponse> searchUserEquipment(Long userId, String keyword) {
+        String normalizedKeyword = keyword == null ? "" : keyword.trim();
+        List<Equipment> equipment = normalizedKeyword.isEmpty()
+                ? equipmentRepository.findByDashboardUserUserIdOrderByEquipmentIdAsc(userId)
+                : equipmentRepository.searchByUserAndKeyword(userId, normalizedKeyword);
+
+        return equipment.stream()
+                .map(EquipmentResponse::fromEntity)
+                .toList();
+    }
+
+    @Transactional(readOnly = true)
     public List<EquipmentResponse> searchDashboardEquipment(Long userId, Long dashboardId, String keyword) {
         getDashboardOrThrow(userId, dashboardId);
         String normalizedKeyword = keyword == null ? "" : keyword.trim();

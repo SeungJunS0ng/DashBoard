@@ -18,7 +18,23 @@ public interface EquipmentRepository extends JpaRepository<Equipment, Long> {
 
     Optional<Equipment> findFirstByEquipmentName(String equipmentName);
 
+    List<Equipment> findByDashboardUserUserIdOrderByEquipmentIdAsc(Long userId);
+
     List<Equipment> findByDashboardDashboardIdOrderByEquipmentIdAsc(Long dashboardId);
+
+    @Query("""
+            SELECT e
+            FROM Equipment e
+            WHERE e.dashboard.user.userId = :userId
+              AND (
+                    LOWER(e.equipmentName) LIKE LOWER(CONCAT('%', :keyword, '%'))
+                    OR LOWER(COALESCE(e.field, '')) LIKE LOWER(CONCAT('%', :keyword, '%'))
+                  )
+            ORDER BY e.equipmentId ASC
+            """)
+    List<Equipment> searchByUserAndKeyword(
+            @Param("userId") Long userId,
+            @Param("keyword") String keyword);
 
     @Query("""
             SELECT e
