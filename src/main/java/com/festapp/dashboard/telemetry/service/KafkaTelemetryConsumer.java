@@ -22,11 +22,23 @@ public class KafkaTelemetryConsumer {
       topics = "${app.kafka.sensor-topic:uemd.sensor.data}",
       groupId = "${spring.kafka.consumer.group-id:dashboard-backend}")
   public void consume(String message) {
+    if (message == null || message.isBlank()) {
+      log.warn("Blank Kafka telemetry payload skipped");
+      return;
+    }
+
     try {
       SensorDataPayload payload = objectMapper.readValue(message, SensorDataPayload.class);
-      realTimeDataService.processSensorData(payload);
+      boolean processed = realTimeDataService.processSensorData(payload);
+      if (!processed) {
+        log.warn("Kafka telemetry payload skipped by processor: equipmentEntityId={}, equipmentId={}",
+            payload.getEquipmentEntityId(),
+            payload.getEquipmentId());
+      }
     } catch (JsonProcessingException e) {
       log.warn("Invalid Kafka telemetry payload skipped: {}", message, e);
+    } catch (Exception e) {
+      log.error("Kafka telemetry payload processing failed: {}", message, e);
     }
   }
 }
