@@ -2,6 +2,7 @@ package com.festapp.dashboard.equipment.controller;
 
 import com.festapp.dashboard.common.dto.ApiResponse;
 import com.festapp.dashboard.common.security.SecurityContextHelper;
+import com.festapp.dashboard.equipment.dto.EquipmentCurrentResponse;
 import com.festapp.dashboard.equipment.dto.EquipmentRequest;
 import com.festapp.dashboard.equipment.dto.EquipmentResponse;
 import com.festapp.dashboard.equipment.service.EquipmentService;
@@ -65,6 +66,22 @@ public class EquipmentController {
                 SecurityContextHelper.getCurrentUserId(),
                 keyword);
         return ResponseEntity.ok(ApiResponse.success("검색 성공", response));
+    }
+
+    @GetMapping("/current")
+    @PreAuthorize("isAuthenticated()")
+    @Operation(summary = "내 전체 장비 최신 상태 조회", description = "프론트 사용 시점: 화면 최초 진입 시 전체 설비 카드/상태판에 표시할 최신 센서 스냅샷을 조회합니다.")
+    public ResponseEntity<ApiResponse<List<EquipmentCurrentResponse>>> getMyEquipmentCurrent() {
+        List<EquipmentCurrentResponse> response = equipmentService.getMyEquipmentCurrent(SecurityContextHelper.getCurrentUserId());
+        return ResponseEntity.ok(ApiResponse.success("조회 성공", response));
+    }
+
+    @GetMapping("/{equipmentId}/current")
+    @PreAuthorize("isAuthenticated()")
+    @Operation(summary = "장비 최신 상태 조회", description = "프론트 사용 시점: 장비 상세 화면 진입 시 Redis에 저장된 최신 센서 스냅샷을 조회합니다.")
+    public ResponseEntity<ApiResponse<EquipmentCurrentResponse>> getEquipmentCurrent(@PathVariable Long equipmentId) {
+        EquipmentCurrentResponse response = equipmentService.getEquipmentCurrent(SecurityContextHelper.getCurrentUserId(), equipmentId);
+        return ResponseEntity.ok(ApiResponse.success("조회 성공", response));
     }
 
     @GetMapping("/{equipmentId}")

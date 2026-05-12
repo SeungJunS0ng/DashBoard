@@ -47,6 +47,31 @@ public class SensorService {
     }
 
     @Transactional(readOnly = true)
+    public List<SensorResponse> searchUserSensors(Long userId, String keyword) {
+        String normalizedKeyword = keyword == null ? "" : keyword.trim();
+        List<Sensor> sensors = normalizedKeyword.isEmpty()
+                ? sensorRepository.findByEquipmentDashboardUserUserIdOrderBySensorIdAsc(userId)
+                : sensorRepository.searchByUserAndKeyword(userId, normalizedKeyword);
+
+        return sensors.stream()
+                .map(SensorResponse::fromEntity)
+                .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public List<SensorResponse> searchEquipmentSensors(Long userId, Long equipmentId, String keyword) {
+        getEquipmentOrThrow(userId, equipmentId);
+        String normalizedKeyword = keyword == null ? "" : keyword.trim();
+        List<Sensor> sensors = normalizedKeyword.isEmpty()
+                ? sensorRepository.findByEquipmentEquipmentIdOrderBySensorIdAsc(equipmentId)
+                : sensorRepository.searchByEquipmentAndKeyword(equipmentId, userId, normalizedKeyword);
+
+        return sensors.stream()
+                .map(SensorResponse::fromEntity)
+                .toList();
+    }
+
+    @Transactional(readOnly = true)
     public SensorResponse getSensor(Long userId, Long sensorId) {
         return SensorResponse.fromEntity(getSensorOrThrow(userId, sensorId));
     }

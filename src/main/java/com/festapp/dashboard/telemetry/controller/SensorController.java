@@ -43,6 +43,30 @@ public class SensorController {
         return ResponseEntity.ok(ApiResponse.success("조회 성공", response));
     }
 
+    @GetMapping("/search")
+    @PreAuthorize("isAuthenticated()")
+    @Operation(summary = "내 전체 센서 검색", description = "프론트 사용 시점: dashboardId/equipmentId 없이 전체 센서 검색창에서 센서명으로 검색할 때 호출합니다. keyword가 비어 있으면 내가 가진 전체 센서 목록을 반환합니다.")
+    public ResponseEntity<ApiResponse<List<SensorResponse>>> searchMySensors(
+            @RequestParam(required = false, defaultValue = "") String keyword) {
+        List<SensorResponse> response = sensorService.searchUserSensors(
+                SecurityContextHelper.getCurrentUserId(),
+                keyword);
+        return ResponseEntity.ok(ApiResponse.success("검색 성공", response));
+    }
+
+    @GetMapping("/equipment/{equipmentId}/search")
+    @PreAuthorize("isAuthenticated()")
+    @Operation(summary = "장비별 센서 검색", description = "프론트 사용 시점: 선택한 장비 안에서 센서명으로 필터링할 때 호출합니다. keyword가 비어 있으면 해당 장비의 전체 센서 목록을 반환합니다.")
+    public ResponseEntity<ApiResponse<List<SensorResponse>>> searchEquipmentSensors(
+            @PathVariable Long equipmentId,
+            @RequestParam(required = false, defaultValue = "") String keyword) {
+        List<SensorResponse> response = sensorService.searchEquipmentSensors(
+                SecurityContextHelper.getCurrentUserId(),
+                equipmentId,
+                keyword);
+        return ResponseEntity.ok(ApiResponse.success("검색 성공", response));
+    }
+
     @GetMapping("/{sensorId}")
     @PreAuthorize("isAuthenticated()")
     @Operation(summary = "센서 단건 조회", description = "프론트 사용 시점: 센서 상세 패널 또는 수정 모달을 열 때 단건 정보를 읽어올 때 사용합니다.")

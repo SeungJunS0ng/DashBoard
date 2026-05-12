@@ -5,15 +5,18 @@ import com.festapp.dashboard.common.exception.ResourceNotFoundException;
 import com.festapp.dashboard.dashboard.entity.Dashboard;
 import com.festapp.dashboard.dashboard.repository.DashboardRepository;
 import com.festapp.dashboard.dashboard.widget.repository.DashboardWidgetRepository;
+import com.festapp.dashboard.equipment.dto.EquipmentCurrentResponse;
 import com.festapp.dashboard.equipment.dto.EquipmentRequest;
 import com.festapp.dashboard.equipment.dto.EquipmentResponse;
 import com.festapp.dashboard.equipment.entity.Equipment;
 import com.festapp.dashboard.equipment.repository.EquipmentRepository;
+import com.festapp.dashboard.telemetry.dto.SensorDataPayload;
 import com.festapp.dashboard.telemetry.entity.Sensor;
 import com.festapp.dashboard.telemetry.repository.SensorNumericHistoryRepository;
 import com.festapp.dashboard.telemetry.repository.SensorRepository;
 import com.festapp.dashboard.telemetry.repository.SensorStringHistoryRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -30,6 +33,7 @@ public class EquipmentService {
     private final SensorNumericHistoryRepository sensorNumericHistoryRepository;
     private final SensorStringHistoryRepository sensorStringHistoryRepository;
     private final DashboardWidgetRepository dashboardWidgetRepository;
+    private final RedisTemplate<String, Object> redisTemplate;
 
     public EquipmentResponse createEquipment(Long userId, EquipmentRequest request) {
         Dashboard dashboard = getDashboardOrThrow(userId, request.getDashboardId());
@@ -80,6 +84,20 @@ public class EquipmentService {
         return EquipmentResponse.fromEntity(getEquipmentOrThrow(userId, equipmentId));
     }
 
+    @Transactional(readOnly = true)
+    public EquipmentCurrentResponse getEquipmentCurrent(Long userId, Long equipmentId) {
+        Equipment equipment = getEquipmentOrThrow(userId, equipmentId);
+        return EquipmentCurrentResponse.fromEntity(equipment, getCurrentPayload(equipment));
+    }
+
+    @Transactional(readOnly = true)
+    public List<EquipmentCurrentResponse> getMyEquipmentCurrent(Long userId) {
+        return equipmentRepository.findByDashboardUserUserIdOrderByEquipmentIdAsc(userId)
+                .stream()
+                .map(equipment -> EquipmentCurrentResponse.fromEntity(equipment, getCurrentPayload(equipment)))
+                .toList();
+    }
+
     public EquipmentResponse updateEquipment(Long userId, Long equipmentId, EquipmentRequest request) {
         Equipment equipment = getEquipmentOrThrow(userId, equipmentId);
         Dashboard dashboard = getDashboardOrThrow(userId, request.getDashboardId());
@@ -110,5 +128,10 @@ public class EquipmentService {
     private Equipment getEquipmentOrThrow(Long userId, Long equipmentId) {
         return equipmentRepository.findByEquipmentIdAndDashboardUserUserId(equipmentId, userId)
                 .orElseThrow(() -> new ResourceNotFoundException(ErrorCode.EQUIPMENT_NOT_FOUND));
+    }
+
+    private SensorDataPayload getCurrentPayload(Equipment equipment) {
+        Object cached = redisTemplate.opsForValue().get("equipment:current:" + equipment.getEquipmentName());
+        return cached instanceof SensorDataPayload payload ? payload : null;
     }
 }
