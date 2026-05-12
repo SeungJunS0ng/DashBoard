@@ -43,7 +43,7 @@ dependencies {
     implementation 'com.fasterxml.jackson.datatype:jackson-datatype-jsr310'
 
     // Swagger/OpenAPI
-    implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui:2.7.0'
+    implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui:3.0.3'
 
     // Flyway
     implementation 'org.springframework.boot:spring-boot-starter-flyway'
