@@ -18,6 +18,8 @@ public interface EquipmentRepository extends JpaRepository<Equipment, Long> {
 
     Optional<Equipment> findFirstByEquipmentName(String equipmentName);
 
+    Optional<Equipment> findFirstByEquipmentNameAndDashboardUserUserId(String equipmentName, Long userId);
+
     List<Equipment> findByDashboardUserUserIdOrderByEquipmentIdAsc(Long userId);
 
     List<Equipment> findByDashboardDashboardIdOrderByEquipmentIdAsc(Long dashboardId);

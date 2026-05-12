@@ -47,6 +47,15 @@ public class SensorService {
     }
 
     @Transactional(readOnly = true)
+    public List<SensorResponse> getEquipmentSensorsByName(Long userId, String equipmentName) {
+        Equipment equipment = getEquipmentByNameOrThrow(userId, equipmentName);
+        return sensorRepository.findByEquipmentEquipmentIdOrderBySensorIdAsc(equipment.getEquipmentId())
+                .stream()
+                .map(SensorResponse::fromEntity)
+                .toList();
+    }
+
+    @Transactional(readOnly = true)
     public List<SensorResponse> searchUserSensors(Long userId, String keyword) {
         String normalizedKeyword = keyword == null ? "" : keyword.trim();
         List<Sensor> sensors = normalizedKeyword.isEmpty()
@@ -72,6 +81,12 @@ public class SensorService {
     }
 
     @Transactional(readOnly = true)
+    public List<SensorResponse> searchEquipmentSensorsByName(Long userId, String equipmentName, String keyword) {
+        Equipment equipment = getEquipmentByNameOrThrow(userId, equipmentName);
+        return searchEquipmentSensors(userId, equipment.getEquipmentId(), keyword);
+    }
+
+    @Transactional(readOnly = true)
     public SensorResponse getSensor(Long userId, Long sensorId) {
         return SensorResponse.fromEntity(getSensorOrThrow(userId, sensorId));
     }
@@ -94,6 +109,11 @@ public class SensorService {
 
     private Equipment getEquipmentOrThrow(Long userId, Long equipmentId) {
         return equipmentRepository.findByEquipmentIdAndDashboardUserUserId(equipmentId, userId)
+                .orElseThrow(() -> new ResourceNotFoundException(ErrorCode.EQUIPMENT_NOT_FOUND));
+    }
+
+    private Equipment getEquipmentByNameOrThrow(Long userId, String equipmentName) {
+        return equipmentRepository.findFirstByEquipmentNameAndDashboardUserUserId(equipmentName, userId)
                 .orElseThrow(() -> new ResourceNotFoundException(ErrorCode.EQUIPMENT_NOT_FOUND));
     }
 

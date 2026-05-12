@@ -43,6 +43,16 @@ public class SensorController {
         return ResponseEntity.ok(ApiResponse.success("조회 성공", response));
     }
 
+    @GetMapping("/equipment-name/{equipmentName}")
+    @PreAuthorize("isAuthenticated()")
+    @Operation(summary = "장비명별 센서 목록 조회", description = "프론트 사용 시점: OPC-UA/시뮬레이터에서 받은 장비명(CVD-CHAMBER-01 등)으로 하위 센서 목록을 조회할 때 호출합니다.")
+    public ResponseEntity<ApiResponse<List<SensorResponse>>> getEquipmentSensorsByName(@PathVariable String equipmentName) {
+        List<SensorResponse> response = sensorService.getEquipmentSensorsByName(
+                SecurityContextHelper.getCurrentUserId(),
+                equipmentName);
+        return ResponseEntity.ok(ApiResponse.success("조회 성공", response));
+    }
+
     @GetMapping("/search")
     @PreAuthorize("isAuthenticated()")
     @Operation(summary = "내 전체 센서 검색", description = "프론트 사용 시점: dashboardId/equipmentId 없이 전체 센서 검색창에서 센서명으로 검색할 때 호출합니다. keyword가 비어 있으면 내가 가진 전체 센서 목록을 반환합니다.")
@@ -63,6 +73,19 @@ public class SensorController {
         List<SensorResponse> response = sensorService.searchEquipmentSensors(
                 SecurityContextHelper.getCurrentUserId(),
                 equipmentId,
+                keyword);
+        return ResponseEntity.ok(ApiResponse.success("검색 성공", response));
+    }
+
+    @GetMapping("/equipment-name/{equipmentName}/search")
+    @PreAuthorize("isAuthenticated()")
+    @Operation(summary = "장비명별 센서 검색", description = "프론트 사용 시점: OPC-UA/시뮬레이터 장비명 기준으로 하위 센서를 검색할 때 호출합니다. keyword가 비어 있으면 해당 장비의 전체 센서 목록을 반환합니다.")
+    public ResponseEntity<ApiResponse<List<SensorResponse>>> searchEquipmentSensorsByName(
+            @PathVariable String equipmentName,
+            @RequestParam(required = false, defaultValue = "") String keyword) {
+        List<SensorResponse> response = sensorService.searchEquipmentSensorsByName(
+                SecurityContextHelper.getCurrentUserId(),
+                equipmentName,
                 keyword);
         return ResponseEntity.ok(ApiResponse.success("검색 성공", response));
     }
