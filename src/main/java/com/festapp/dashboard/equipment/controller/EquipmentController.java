@@ -43,6 +43,19 @@ public class EquipmentController {
         return ResponseEntity.ok(ApiResponse.success("조회 성공", response));
     }
 
+    @GetMapping("/dashboard/{dashboardId}/search")
+    @PreAuthorize("isAuthenticated()")
+    @Operation(summary = "대시보드별 장비 검색", description = "프론트 사용 시점: 설비 검색창에서 장비명 또는 분류(field)로 필터링할 때 호출합니다. keyword가 비어 있으면 전체 장비 목록을 반환합니다.")
+    public ResponseEntity<ApiResponse<List<EquipmentResponse>>> searchDashboardEquipment(
+            @PathVariable Long dashboardId,
+            @RequestParam(required = false, defaultValue = "") String keyword) {
+        List<EquipmentResponse> response = equipmentService.searchDashboardEquipment(
+                SecurityContextHelper.getCurrentUserId(),
+                dashboardId,
+                keyword);
+        return ResponseEntity.ok(ApiResponse.success("검색 성공", response));
+    }
+
     @GetMapping("/{equipmentId}")
     @PreAuthorize("isAuthenticated()")
     @Operation(summary = "장비 단건 조회", description = "프론트 사용 시점: 장비 상세 패널 또는 수정 모달을 열 때 단건 정보를 읽어올 때 사용합니다.")

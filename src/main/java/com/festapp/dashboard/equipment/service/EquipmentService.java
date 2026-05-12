@@ -51,6 +51,19 @@ public class EquipmentService {
     }
 
     @Transactional(readOnly = true)
+    public List<EquipmentResponse> searchDashboardEquipment(Long userId, Long dashboardId, String keyword) {
+        getDashboardOrThrow(userId, dashboardId);
+        String normalizedKeyword = keyword == null ? "" : keyword.trim();
+        if (normalizedKeyword.isEmpty()) {
+            return getDashboardEquipment(userId, dashboardId);
+        }
+        return equipmentRepository.searchByDashboardAndKeyword(dashboardId, userId, normalizedKeyword)
+                .stream()
+                .map(EquipmentResponse::fromEntity)
+                .toList();
+    }
+
+    @Transactional(readOnly = true)
     public EquipmentResponse getEquipment(Long userId, Long equipmentId) {
         return EquipmentResponse.fromEntity(getEquipmentOrThrow(userId, equipmentId));
     }
