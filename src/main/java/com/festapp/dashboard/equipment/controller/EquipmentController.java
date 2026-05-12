@@ -2,6 +2,8 @@ package com.festapp.dashboard.equipment.controller;
 
 import com.festapp.dashboard.common.dto.ApiResponse;
 import com.festapp.dashboard.common.security.SecurityContextHelper;
+import com.festapp.dashboard.equipment.dto.DiscoveryApplyRequest;
+import com.festapp.dashboard.equipment.dto.DiscoveryApplyResponse;
 import com.festapp.dashboard.equipment.dto.EquipmentCurrentResponse;
 import com.festapp.dashboard.equipment.dto.EquipmentRequest;
 import com.festapp.dashboard.equipment.dto.EquipmentResponse;
@@ -34,6 +36,18 @@ public class EquipmentController {
         EquipmentResponse response = equipmentService.createEquipment(SecurityContextHelper.getCurrentUserId(), request);
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(ApiResponse.success("장비 생성 성공", response, HttpStatus.CREATED.value()));
+    }
+
+    @PostMapping("/discovery/apply")
+    @PreAuthorize("isAuthenticated()")
+    @Operation(summary = "자동 검색 결과 일괄 등록", description = "프론트 사용 시점: 자동 검색 모달의 적용 및 등록 버튼 클릭 시 발견된 장비와 태그를 한 번에 장비/센서로 생성하거나 기존 항목을 재사용합니다.")
+    public ResponseEntity<ApiResponse<DiscoveryApplyResponse>> applyDiscovery(
+            @Valid @RequestBody DiscoveryApplyRequest request) {
+        DiscoveryApplyResponse response = equipmentService.applyDiscovery(
+                SecurityContextHelper.getCurrentUserId(),
+                request);
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(ApiResponse.success("자동 검색 결과 등록 성공", response, HttpStatus.CREATED.value()));
     }
 
     @GetMapping("/dashboard/{dashboardId}")
