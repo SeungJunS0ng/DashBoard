@@ -60,6 +60,14 @@ app:
   kafka:
     enabled: ${KAFKA_ENABLED:false}
     sensor-topic: ${KAFKA_SENSOR_TOPIC:uemd.sensor.data}
+  mqtt:
+    enabled: ${MQTT_ENABLED:false}
+    broker-url: ${MQTT_BROKER_URL:tcp://localhost:1883}
+    client-id: ${MQTT_CLIENT_ID:dashboard-backend}
+    username: ${MQTT_USERNAME:}
+    password: ${MQTT_PASSWORD:}
+    qos: ${MQTT_QOS:1}
+    topics: ${MQTT_TOPICS:factory/equipment/+/metadata,factory/equipment/+/telemetry}
 
 jwt:
   secret: ${JWT_SECRET:your-secret-key-that-is-at-least-256-bits-long-for-hs512-algorithm-must-be-very-long-and-secure-key}
