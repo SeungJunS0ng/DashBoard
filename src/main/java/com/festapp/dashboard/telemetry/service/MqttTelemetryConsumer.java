@@ -82,7 +82,13 @@ public class MqttTelemetryConsumer {
         SensorDataPayload sensorPayload;
 
         if (root.has("sensors")) {
-            sensorPayload = objectMapper.treeToValue(root, SensorDataPayload.class);
+            sensorPayload = SensorDataPayload.builder()
+                    .equipmentEntityId(root.hasNonNull("equipmentEntityId") ? root.get("equipmentEntityId").asLong() : null)
+                    .equipmentId(textOrNull(root, "equipmentId"))
+                    .timestamp(textOrNull(root, "timestamp"))
+                    .status(textOrNull(root, "status"))
+                    .sensors(normalizeSensorArray(root.get("sensors")))
+                    .build();
         } else {
             sensorPayload = SensorDataPayload.builder()
                     .timestamp(textOrNull(root, "timestamp"))
@@ -98,6 +104,32 @@ public class MqttTelemetryConsumer {
             sensorPayload.setStatus("RUN");
         }
         return sensorPayload;
+    }
+
+    private List<SensorDataPayload.SensorDetails> normalizeSensorArray(JsonNode sensorsNode) {
+        List<SensorDataPayload.SensorDetails> sensors = new ArrayList<>();
+        if (sensorsNode == null || !sensorsNode.isArray()) {
+            return sensors;
+        }
+
+        for (JsonNode sensorNode : sensorsNode) {
+            if (sensorNode == null || sensorNode.isNull()) {
+                continue;
+            }
+            String sensorId = firstText(sensorNode, "sensorId", "name", "svid");
+            JsonNode valueNode = sensorNode.get("value");
+            if (sensorId == null || sensorId.isBlank() || valueNode == null || valueNode.isNull()) {
+                continue;
+            }
+            String dataType = textOrNull(sensorNode, "dataType");
+            sensors.add(SensorDataPayload.SensorDetails.builder()
+                    .sensorId(sensorId)
+                    .dataType(dataType)
+                    .value(toSensorValue(valueNode, dataType))
+                    .unit(textOrNull(sensorNode, "unit"))
+                    .build());
+        }
+        return sensors;
     }
 
     private List<SensorDataPayload.SensorDetails> flattenSensorValues(JsonNode root) {
@@ -128,6 +160,32 @@ public class MqttTelemetryConsumer {
             return value.booleanValue();
         }
         return value.asText();
+    }
+
+    private Object toSensorValue(JsonNode value, String dataType) {
+        if ("BOOLEAN".equalsIgnoreCase(dataType)) {
+            if (value.isBoolean()) {
+                return value.booleanValue();
+            }
+            if (value.isNumber()) {
+                return value.asInt() != 0;
+            }
+            String text = value.asText();
+            if ("1".equals(text)) {
+                return true;
+            }
+            if ("0".equals(text)) {
+                return false;
+            }
+            return Boolean.parseBoolean(text);
+        }
+        if ("INTEGER".equalsIgnoreCase(dataType) || "INT".equalsIgnoreCase(dataType)) {
+            return value.isNumber() ? value.longValue() : value.asLong();
+        }
+        if ("FLOAT".equalsIgnoreCase(dataType) || "DOUBLE".equalsIgnoreCase(dataType)) {
+            return value.isNumber() ? value.doubleValue() : value.asDouble();
+        }
+        return toPlainValue(value);
     }
 
     private boolean isMetadataField(String key) {
@@ -161,5 +219,15 @@ public class MqttTelemetryConsumer {
     private String textOrDefault(JsonNode root, String fieldName, String defaultValue) {
         String value = textOrNull(root, fieldName);
         return value != null && !value.isBlank() ? value : defaultValue;
+    }
+
+    private String firstText(JsonNode root, String... fieldNames) {
+        for (String fieldName : fieldNames) {
+            String value = textOrNull(root, fieldName);
+            if (value != null && !value.isBlank()) {
+                return value;
+            }
+        }
+        return null;
     }
 }

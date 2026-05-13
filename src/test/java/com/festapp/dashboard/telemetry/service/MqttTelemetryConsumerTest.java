@@ -88,4 +88,39 @@ class MqttTelemetryConsumerTest {
 
         verify(realTimeDataService, never()).processSensorData(any());
     }
+
+    @Test
+    @DisplayName("시뮬레이터 MQTT payload의 name/svid 센서 형식을 표준 센서 형식으로 변환한다")
+    void simulatorTelemetryPayloadIsNormalized() {
+        RealTimeDataService realTimeDataService = mock(RealTimeDataService.class);
+        MqttTelemetryConsumer consumer = new MqttTelemetryConsumer(new ObjectMapper(), realTimeDataService);
+
+        consumer.consume("factory/equipment/ETCHER-01/telemetry", """
+                {
+                  "equipmentId": "ETCHER-01",
+                  "timestamp": "2026-05-13T02:16:09.841019+00:00",
+                  "status": "COOLDOWN",
+                  "sensors": [
+                    {"svid": 1, "name": "Chamber_Pressure", "dataType": "FLOAT", "value": 8.03, "unit": "mTorr"},
+                    {"svid": 8, "name": "Vacuum_Pump_State", "dataType": "BOOLEAN", "value": 1, "unit": "STATE"},
+                    {"svid": 9, "name": "Wafer_Processed_Count", "dataType": "INTEGER", "value": 1, "unit": "ea"},
+                    {"svid": 11, "name": "Equipment_State", "dataType": "STRING", "value": "COOLDOWN", "unit": ""}
+                  ]
+                }
+                """);
+
+        verify(realTimeDataService).processSensorData(argThat(payload ->
+                "ETCHER-01".equals(payload.getEquipmentId())
+                        && "COOLDOWN".equals(payload.getStatus())
+                        && payload.getSensors().size() == 4
+                        && payload.getSensors().stream().anyMatch(sensor ->
+                        "Chamber_Pressure".equals(sensor.getSensorId()) && "FLOAT".equals(sensor.getDataType()))
+                        && payload.getSensors().stream().anyMatch(sensor ->
+                        "Vacuum_Pump_State".equals(sensor.getSensorId()) && Boolean.TRUE.equals(sensor.getValue()))
+                        && payload.getSensors().stream().anyMatch(sensor ->
+                        "Wafer_Processed_Count".equals(sensor.getSensorId()) && Long.valueOf(1L).equals(sensor.getValue()))
+                        && payload.getSensors().stream().anyMatch(sensor ->
+                        "Equipment_State".equals(sensor.getSensorId()) && "COOLDOWN".equals(sensor.getValue()))
+        ));
+    }
 }

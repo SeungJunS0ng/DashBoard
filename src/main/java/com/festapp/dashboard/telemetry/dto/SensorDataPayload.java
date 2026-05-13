@@ -26,7 +26,7 @@ public class SensorDataPayload {
   @Schema(description = "데이터 발생 시간 (ISO 8601)", example = "2026-04-02T13:45:01.123Z")
   private String timestamp;
 
-  @Schema(description = "장비 현재 상태", allowableValues = {"RUN", "STOP", "CRITICAL"}, example = "RUN")
+  @Schema(description = "장비 현재 상태", example = "RUN")
   private String status;
 
   @Valid
@@ -50,7 +50,7 @@ public class SensorDataPayload {
     @Schema(description = "센서 식별자", example = "Temp_0")
     private String sensorId;
 
-    @Schema(description = "데이터 타입", allowableValues = {"FLOAT", "BOOLEAN", "INT"}, example = "FLOAT")
+    @Schema(description = "데이터 타입", allowableValues = {"FLOAT", "DOUBLE", "BOOLEAN", "INTEGER", "INT", "STRING"}, example = "FLOAT")
     private String dataType;
 
     @NotNull(message = "센서 측정값은 필수입니다")
