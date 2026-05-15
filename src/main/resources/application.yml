@@ -56,13 +56,13 @@ app:
   cors:
     allowed-origin-patterns: ${CORS_ALLOWED_ORIGIN_PATTERNS:http://localhost:*,http://127.0.0.1:*,http://43.201.141.9:*,https://*.vercel.app,https://*.netlify.app}
   rabbit:
-    enabled: ${RABBIT_ENABLED:true}
+    enabled: ${RABBIT_ENABLED:false}
   kafka:
     enabled: ${KAFKA_ENABLED:false}
     sensor-topic: ${KAFKA_SENSOR_TOPIC:uemd.sensor.data}
   mqtt:
-    enabled: ${MQTT_ENABLED:false}
-    broker-url: ${MQTT_BROKER_URL:tcp://localhost:1883}
+    enabled: ${MQTT_ENABLED:true}
+    broker-url: ${MQTT_BROKER_URL:tcp://43.201.141.9:1883}
     client-id: ${MQTT_CLIENT_ID:dashboard-backend}
     username: ${MQTT_USERNAME:}
     password: ${MQTT_PASSWORD:}

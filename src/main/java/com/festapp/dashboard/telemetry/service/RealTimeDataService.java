@@ -5,6 +5,8 @@ import com.festapp.dashboard.equipment.repository.EquipmentRepository;
 import com.festapp.dashboard.telemetry.dto.SensorDataPayload;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
@@ -20,6 +22,10 @@ public class RealTimeDataService {
   private final RedisTemplate<String, Object> redisTemplate;
   private final SensorHistoryService sensorHistoryService;
   private final EquipmentRepository equipmentRepository;
+  private final ObjectProvider<KafkaTelemetryProducer> kafkaTelemetryProducerProvider;
+
+  @Value("${app.kafka.sensor-topic:uemd.sensor.data}")
+  private String kafkaSensorTopic;
 
   public boolean processSensorData(SensorDataPayload payload) {
     if (payload == null) {
@@ -54,6 +60,11 @@ public class RealTimeDataService {
     }
     for (Long targetEquipmentId : resolveTargetEquipmentIds(payload)) {
       messagingTemplate.convertAndSend("/topic/equipment-id/" + targetEquipmentId, copyForEquipment(payload, targetEquipmentId));
+    }
+
+    KafkaTelemetryProducer kafkaTelemetryProducer = kafkaTelemetryProducerProvider.getIfAvailable();
+    if (kafkaTelemetryProducer != null) {
+      kafkaTelemetryProducer.publishTelemetry(kafkaSensorTopic, payload);
     }
 
     log.debug("Data processed and broadcasted for equipment: {}", resolveLogEquipment(payload));

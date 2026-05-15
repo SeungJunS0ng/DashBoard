@@ -86,6 +86,31 @@ class MqttTelemetryConsumerTest {
     }
 
     @Test
+    @DisplayName("시뮬레이터 MQTT metadata의 sensors 배열은 센서명 목록으로 변환한다")
+    void simulatorMetadataSensorsAreConvertedToTags() {
+        RealTimeDataService realTimeDataService = mock(RealTimeDataService.class);
+        EquipmentService equipmentService = mock(EquipmentService.class);
+        MqttTelemetryConsumer consumer = new MqttTelemetryConsumer(new ObjectMapper(), realTimeDataService, equipmentService);
+
+        consumer.consume("factory/equipment/CVD-CHAMBER-01/metadata", """
+                {
+                  "equipmentId": "CVD-CHAMBER-01",
+                  "equipmentType": "CVD",
+                  "sensors": [
+                    {"svid": 1, "name": "Chamber_Pressure", "dataType": "FLOAT", "unit": "mTorr"},
+                    {"svid": 2, "name": "Heater_Temp_Zone1", "dataType": "FLOAT", "unit": "degC"}
+                  ]
+                }
+                """);
+
+        verify(realTimeDataService, never()).processSensorData(any());
+        verify(equipmentService).upsertEquipmentMetadata(eq("CVD-CHAMBER-01"), argThat(tags ->
+                tags.size() == 2
+                        && tags.contains("Chamber_Pressure")
+                        && tags.contains("Heater_Temp_Zone1")));
+    }
+
+    @Test
     @DisplayName("지원하지 않는 MQTT topic은 건너뛴다")
     void unsupportedTopicIsSkipped() {
         RealTimeDataService realTimeDataService = mock(RealTimeDataService.class);

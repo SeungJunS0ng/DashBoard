@@ -9,9 +9,11 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.data.redis.core.ValueOperations;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
+import org.springframework.test.util.ReflectionTestUtils;
 
 import java.util.List;
 
@@ -40,6 +42,12 @@ class RealTimeDataServiceTest {
 
     @Mock
     private EquipmentRepository equipmentRepository;
+
+    @Mock
+    private ObjectProvider<KafkaTelemetryProducer> kafkaTelemetryProducerProvider;
+
+    @Mock
+    private KafkaTelemetryProducer kafkaTelemetryProducer;
 
     @InjectMocks
     private RealTimeDataService realTimeDataService;
@@ -122,6 +130,21 @@ class RealTimeDataServiceTest {
         verify(messagingTemplate).convertAndSend(eq("/topic/equipment/CVD-01"), eq(payload));
         verify(messagingTemplate).convertAndSend(eq("/topic/equipment-id/10"), any(SensorDataPayload.class));
         verify(messagingTemplate).convertAndSend(eq("/topic/equipment-id/11"), any(SensorDataPayload.class));
+    }
+
+    @Test
+    @DisplayName("Kafka producer가 활성화되어 있으면 처리된 telemetry를 Kafka로 발행한다")
+    void processValidTelemetryPublishesToKafkaWhenProducerIsAvailable() {
+        SensorDataPayload payload = payload(10L, "CVD-01");
+        when(sensorHistoryService.persistTelemetryPayload(payload)).thenReturn(true);
+        when(redisTemplate.opsForValue()).thenReturn(valueOperations);
+        when(kafkaTelemetryProducerProvider.getIfAvailable()).thenReturn(kafkaTelemetryProducer);
+        ReflectionTestUtils.setField(realTimeDataService, "kafkaSensorTopic", "uemd.sensor.data");
+
+        boolean processed = realTimeDataService.processSensorData(payload);
+
+        assertThat(processed).isTrue();
+        verify(kafkaTelemetryProducer).publishTelemetry("uemd.sensor.data", payload);
     }
 
     private SensorDataPayload payload(Long equipmentEntityId, String equipmentId) {

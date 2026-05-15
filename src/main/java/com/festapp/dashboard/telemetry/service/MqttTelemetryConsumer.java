@@ -67,6 +67,14 @@ public class MqttTelemetryConsumer {
                         }
                     }
                 }
+                if (root.has("sensors") && root.get("sensors").isArray()) {
+                    for (JsonNode sensorNode : root.get("sensors")) {
+                        String tagName = firstText(sensorNode, "sensorId", "name", "svid");
+                        if (tagName != null && !tagName.isBlank()) {
+                            tags.add(tagName);
+                        }
+                    }
+                }
                 equipmentService.upsertEquipmentMetadata(equipmentName, tags);
             } catch (JsonProcessingException e) {
                 log.warn("Invalid MQTT metadata payload skipped: topic={}, payload={}", topic, payload, e);
