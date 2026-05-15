@@ -171,8 +171,8 @@ class RealTimeDataServiceIntegrationTest {
     }
 
     @Test
-    @DisplayName("등록되지 않은 장비는 이력 저장을 건너뛴다")
-    void skipUnknownEquipment() {
+    @DisplayName("등록되지 않은 장비는 기본 대시보드에 자동 등록하고 이력을 저장한다")
+    void autoProvisionUnknownEquipment() {
         SensorDataPayload payload = SensorDataPayload.builder()
                 .equipmentId("UNKNOWN-EQUIPMENT")
                 .timestamp("2026-04-17T10:00:00Z")
@@ -187,8 +187,9 @@ class RealTimeDataServiceIntegrationTest {
 
         realTimeDataService.processSensorData(payload);
 
-        assertThat(sensorRepository.findAll()).isEmpty();
-        assertThat(sensorNumericHistoryRepository.findAll()).isEmpty();
+        assertThat(equipmentRepository.findByEquipmentName("UNKNOWN-EQUIPMENT")).hasSize(1);
+        assertThat(sensorRepository.findAll()).hasSize(1);
+        assertThat(sensorNumericHistoryRepository.findAll()).hasSize(1);
     }
 
     private Equipment createDuplicatedNameEquipment() {

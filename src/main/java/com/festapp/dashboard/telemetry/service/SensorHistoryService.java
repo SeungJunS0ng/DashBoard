@@ -2,6 +2,8 @@ package com.festapp.dashboard.telemetry.service;
 
 import com.festapp.dashboard.common.exception.ErrorCode;
 import com.festapp.dashboard.common.exception.ResourceNotFoundException;
+import com.festapp.dashboard.dashboard.entity.Dashboard;
+import com.festapp.dashboard.dashboard.service.DashboardProvisioningService;
 import com.festapp.dashboard.equipment.entity.Equipment;
 import com.festapp.dashboard.equipment.repository.EquipmentRepository;
 import com.festapp.dashboard.telemetry.dto.SensorDataPayload;
@@ -35,6 +37,7 @@ public class SensorHistoryService {
     private final SensorRepository sensorRepository;
     private final SensorNumericHistoryRepository sensorNumericHistoryRepository;
     private final SensorStringHistoryRepository sensorStringHistoryRepository;
+    private final DashboardProvisioningService dashboardProvisioningService;
 
     @Transactional
     public SensorNumericHistoryResponse createNumericHistory(Long userId, Long sensorId, SensorNumericHistoryCreateRequest request) {
@@ -135,8 +138,13 @@ public class SensorHistoryService {
 
         List<Equipment> matches = equipmentRepository.findByEquipmentName(payload.getEquipmentId());
         if (matches.isEmpty()) {
-            log.warn("Skipping telemetry persistence because equipment is not registered: {}", payload.getEquipmentId());
-            return List.of();
+            Dashboard defaultDashboard = dashboardProvisioningService.getSystemDefaultDashboard();
+            Equipment newEquipment = equipmentRepository.save(Equipment.builder()
+                    .dashboard(defaultDashboard)
+                    .equipmentName(payload.getEquipmentId())
+                    .build());
+            log.info("Auto-provisioned new equipment '{}' to system default dashboard", payload.getEquipmentId());
+            return List.of(newEquipment);
         }
         if (matches.size() > 1) {
             log.info(

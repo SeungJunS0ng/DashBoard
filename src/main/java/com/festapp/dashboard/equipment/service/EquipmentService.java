@@ -4,6 +4,7 @@ import com.festapp.dashboard.common.exception.ErrorCode;
 import com.festapp.dashboard.common.exception.ResourceNotFoundException;
 import com.festapp.dashboard.dashboard.entity.Dashboard;
 import com.festapp.dashboard.dashboard.repository.DashboardRepository;
+import com.festapp.dashboard.dashboard.service.DashboardProvisioningService;
 import com.festapp.dashboard.dashboard.widget.repository.DashboardWidgetRepository;
 import com.festapp.dashboard.equipment.dto.DiscoveryApplyRequest;
 import com.festapp.dashboard.equipment.dto.DiscoveryApplyResponse;
@@ -38,7 +39,33 @@ public class EquipmentService {
     private final SensorNumericHistoryRepository sensorNumericHistoryRepository;
     private final SensorStringHistoryRepository sensorStringHistoryRepository;
     private final DashboardWidgetRepository dashboardWidgetRepository;
+    private final DashboardProvisioningService dashboardProvisioningService;
     private final RedisTemplate<String, Object> redisTemplate;
+
+    public void upsertEquipmentMetadata(String equipmentName, List<String> tagNames) {
+        List<Equipment> existingEquipments = equipmentRepository.findByEquipmentName(equipmentName);
+        
+        if (existingEquipments.isEmpty()) {
+            Dashboard defaultDashboard = dashboardProvisioningService.getSystemDefaultDashboard();
+            Equipment newEquipment = equipmentRepository.save(Equipment.builder()
+                    .dashboard(defaultDashboard)
+                    .equipmentName(equipmentName)
+                    .build());
+            existingEquipments = List.of(newEquipment);
+        }
+        
+        if (tagNames != null) {
+            for (Equipment equipment : existingEquipments) {
+                for (String tagName : tagNames) {
+                    sensorRepository.findBySensorNameAndEquipmentEquipmentId(tagName, equipment.getEquipmentId())
+                            .orElseGet(() -> sensorRepository.save(Sensor.builder()
+                                    .equipment(equipment)
+                                    .sensorName(tagName)
+                                    .build()));
+                }
+            }
+        }
+    }
 
     public EquipmentResponse createEquipment(Long userId, EquipmentRequest request) {
         Dashboard dashboard = getDashboardOrThrow(userId, request.getDashboardId());

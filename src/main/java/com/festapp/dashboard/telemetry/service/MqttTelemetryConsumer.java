@@ -3,6 +3,7 @@ package com.festapp.dashboard.telemetry.service;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.festapp.dashboard.equipment.service.EquipmentService;
 import com.festapp.dashboard.telemetry.dto.SensorDataPayload;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -29,6 +30,7 @@ public class MqttTelemetryConsumer {
 
     private final ObjectMapper objectMapper;
     private final RealTimeDataService realTimeDataService;
+    private final EquipmentService equipmentService;
 
     @ServiceActivator(inputChannel = "mqttInputChannel")
     public void consume(Message<?> message) {
@@ -55,6 +57,22 @@ public class MqttTelemetryConsumer {
 
         if (topic.endsWith(METADATA_SUFFIX)) {
             log.info("MQTT equipment metadata received: equipmentId={}, payload={}", equipmentName, payload);
+            try {
+                JsonNode root = objectMapper.readTree(payload);
+                List<String> tags = new ArrayList<>();
+                if (root.has("tags") && root.get("tags").isArray()) {
+                    for (JsonNode tagNode : root.get("tags")) {
+                        if (tagNode.isTextual()) {
+                            tags.add(tagNode.asText());
+                        }
+                    }
+                }
+                equipmentService.upsertEquipmentMetadata(equipmentName, tags);
+            } catch (JsonProcessingException e) {
+                log.warn("Invalid MQTT metadata payload skipped: topic={}, payload={}", topic, payload, e);
+            } catch (Exception e) {
+                log.error("MQTT metadata payload processing failed: topic={}, payload={}", topic, payload, e);
+            }
             return;
         }
 

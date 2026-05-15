@@ -1,14 +1,17 @@
 package com.festapp.dashboard.telemetry.service;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.festapp.dashboard.equipment.service.EquipmentService;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.argThat;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.times;
 
 @DisplayName("MQTT Telemetry Consumer 단위 테스트")
 class MqttTelemetryConsumerTest {
@@ -17,7 +20,8 @@ class MqttTelemetryConsumerTest {
     @DisplayName("MQTT telemetry topic의 SensorDataPayload JSON을 기존 실시간 처리 흐름으로 전달한다")
     void mqttTelemetryPayloadDelegatesToRealTimeService() {
         RealTimeDataService realTimeDataService = mock(RealTimeDataService.class);
-        MqttTelemetryConsumer consumer = new MqttTelemetryConsumer(new ObjectMapper(), realTimeDataService);
+        EquipmentService equipmentService = mock(EquipmentService.class);
+        MqttTelemetryConsumer consumer = new MqttTelemetryConsumer(new ObjectMapper(), realTimeDataService, equipmentService);
 
         consumer.consume("factory/equipment/CVD-CHAMBER-01/telemetry", """
                 {
@@ -41,7 +45,8 @@ class MqttTelemetryConsumerTest {
     @DisplayName("MQTT flat telemetry JSON은 센서 목록으로 변환한다")
     void mqttFlatTelemetryPayloadIsConvertedToSensors() {
         RealTimeDataService realTimeDataService = mock(RealTimeDataService.class);
-        MqttTelemetryConsumer consumer = new MqttTelemetryConsumer(new ObjectMapper(), realTimeDataService);
+        EquipmentService equipmentService = mock(EquipmentService.class);
+        MqttTelemetryConsumer consumer = new MqttTelemetryConsumer(new ObjectMapper(), realTimeDataService, equipmentService);
 
         consumer.consume("factory/equipment/ETCHER-01/telemetry", """
                 {
@@ -63,10 +68,11 @@ class MqttTelemetryConsumerTest {
     }
 
     @Test
-    @DisplayName("MQTT metadata topic은 현재 자동 등록하지 않고 처리 흐름으로 넘기지 않는다")
-    void mqttMetadataPayloadIsNotDelegated() {
+    @DisplayName("MQTT metadata topic은 장비/센서를 upsert한다")
+    void mqttMetadataPayloadIsDelegated() {
         RealTimeDataService realTimeDataService = mock(RealTimeDataService.class);
-        MqttTelemetryConsumer consumer = new MqttTelemetryConsumer(new ObjectMapper(), realTimeDataService);
+        EquipmentService equipmentService = mock(EquipmentService.class);
+        MqttTelemetryConsumer consumer = new MqttTelemetryConsumer(new ObjectMapper(), realTimeDataService, equipmentService);
 
         consumer.consume("factory/equipment/CVD-CHAMBER-01/metadata", """
                 {
@@ -76,13 +82,15 @@ class MqttTelemetryConsumerTest {
                 """);
 
         verify(realTimeDataService, never()).processSensorData(any());
+        verify(equipmentService, times(1)).upsertEquipmentMetadata(eq("CVD-CHAMBER-01"), argThat(tags -> tags.size() == 2 && tags.contains("Temp_0") && tags.contains("Pressure_0")));
     }
 
     @Test
     @DisplayName("지원하지 않는 MQTT topic은 건너뛴다")
     void unsupportedTopicIsSkipped() {
         RealTimeDataService realTimeDataService = mock(RealTimeDataService.class);
-        MqttTelemetryConsumer consumer = new MqttTelemetryConsumer(new ObjectMapper(), realTimeDataService);
+        EquipmentService equipmentService = mock(EquipmentService.class);
+        MqttTelemetryConsumer consumer = new MqttTelemetryConsumer(new ObjectMapper(), realTimeDataService, equipmentService);
 
         consumer.consume("factory/unknown/CVD-CHAMBER-01/telemetry", "{\"pressure\":1.25}");
 
@@ -93,7 +101,8 @@ class MqttTelemetryConsumerTest {
     @DisplayName("시뮬레이터 MQTT payload의 name/svid 센서 형식을 표준 센서 형식으로 변환한다")
     void simulatorTelemetryPayloadIsNormalized() {
         RealTimeDataService realTimeDataService = mock(RealTimeDataService.class);
-        MqttTelemetryConsumer consumer = new MqttTelemetryConsumer(new ObjectMapper(), realTimeDataService);
+        EquipmentService equipmentService = mock(EquipmentService.class);
+        MqttTelemetryConsumer consumer = new MqttTelemetryConsumer(new ObjectMapper(), realTimeDataService, equipmentService);
 
         consumer.consume("factory/equipment/ETCHER-01/telemetry", """
                 {
