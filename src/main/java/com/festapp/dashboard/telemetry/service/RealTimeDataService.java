@@ -1,5 +1,7 @@
 package com.festapp.dashboard.telemetry.service;
 
+import com.festapp.dashboard.equipment.entity.Equipment;
+import com.festapp.dashboard.equipment.repository.EquipmentRepository;
 import com.festapp.dashboard.telemetry.dto.SensorDataPayload;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -17,6 +19,7 @@ public class RealTimeDataService {
   private final SimpMessagingTemplate messagingTemplate;
   private final RedisTemplate<String, Object> redisTemplate;
   private final SensorHistoryService sensorHistoryService;
+  private final EquipmentRepository equipmentRepository;
 
   public boolean processSensorData(SensorDataPayload payload) {
     if (payload == null) {
@@ -49,8 +52,8 @@ public class RealTimeDataService {
     if (equipmentId != null && !equipmentId.isBlank()) {
       messagingTemplate.convertAndSend("/topic/equipment/" + equipmentId, payload);
     }
-    if (equipmentEntityId != null) {
-      messagingTemplate.convertAndSend("/topic/equipment-id/" + equipmentEntityId, payload);
+    for (Long targetEquipmentId : resolveTargetEquipmentIds(payload)) {
+      messagingTemplate.convertAndSend("/topic/equipment-id/" + targetEquipmentId, copyForEquipment(payload, targetEquipmentId));
     }
 
     log.debug("Data processed and broadcasted for equipment: {}", resolveLogEquipment(payload));
@@ -64,6 +67,11 @@ public class RealTimeDataService {
     if (payload.getEquipmentId() != null && !payload.getEquipmentId().isBlank()) {
       redisTemplate.opsForValue().set("equipment:current:" + payload.getEquipmentId(), payload);
     }
+    if (payload.getEquipmentEntityId() == null && payload.getEquipmentId() != null && !payload.getEquipmentId().isBlank()) {
+      for (Long targetEquipmentId : resolveTargetEquipmentIds(payload)) {
+        redisTemplate.opsForValue().set("equipment:current:id:" + targetEquipmentId, copyForEquipment(payload, targetEquipmentId));
+      }
+    }
   }
 
   private String resolveLogEquipment(SensorDataPayload payload) {
@@ -71,6 +79,29 @@ public class RealTimeDataService {
       return "id:" + payload.getEquipmentEntityId();
     }
     return payload.getEquipmentId();
+  }
+
+  private List<Long> resolveTargetEquipmentIds(SensorDataPayload payload) {
+    if (payload.getEquipmentEntityId() != null) {
+      return List.of(payload.getEquipmentEntityId());
+    }
+    if (payload.getEquipmentId() == null || payload.getEquipmentId().isBlank()) {
+      return List.of();
+    }
+    return equipmentRepository.findByEquipmentName(payload.getEquipmentId())
+            .stream()
+            .map(Equipment::getEquipmentId)
+            .toList();
+  }
+
+  private SensorDataPayload copyForEquipment(SensorDataPayload payload, Long equipmentEntityId) {
+    return SensorDataPayload.builder()
+            .equipmentEntityId(equipmentEntityId)
+            .equipmentId(payload.getEquipmentId())
+            .timestamp(payload.getTimestamp())
+            .status(payload.getStatus())
+            .sensors(payload.getSensors())
+            .build();
   }
 
   private void autoTagging(List<SensorDataPayload.SensorDetails> sensors) {

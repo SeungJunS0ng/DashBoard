@@ -146,9 +146,9 @@ class RealTimeDataServiceIntegrationTest {
     }
 
     @Test
-    @DisplayName("장비명이 중복된 레거시 payload는 잘못 저장하지 않고 건너뛴다")
-    void skipAmbiguousLegacyEquipmentName() {
-        createDuplicatedNameEquipment();
+    @DisplayName("장비명이 중복된 레거시 payload는 같은 이름의 모든 장비에 저장된다")
+    void persistLegacyEquipmentNameToAllMatchingEquipment() {
+        Equipment duplicatedNameEquipment = createDuplicatedNameEquipment();
 
         SensorDataPayload payload = SensorDataPayload.builder()
                 .equipmentId("CVD-CHAMBER-04")
@@ -165,8 +165,9 @@ class RealTimeDataServiceIntegrationTest {
 
         realTimeDataService.processSensorData(payload);
 
-        assertThat(sensorRepository.findAll()).isEmpty();
-        assertThat(sensorNumericHistoryRepository.findAll()).isEmpty();
+        assertThat(sensorRepository.findByEquipmentEquipmentIdOrderBySensorIdAsc(equipment.getEquipmentId())).hasSize(1);
+        assertThat(sensorRepository.findByEquipmentEquipmentIdOrderBySensorIdAsc(duplicatedNameEquipment.getEquipmentId())).hasSize(1);
+        assertThat(sensorNumericHistoryRepository.findAll()).hasSize(2);
     }
 
     @Test

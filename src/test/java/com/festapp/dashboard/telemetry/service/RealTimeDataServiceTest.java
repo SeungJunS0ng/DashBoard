@@ -1,5 +1,7 @@
 package com.festapp.dashboard.telemetry.service;
 
+import com.festapp.dashboard.equipment.entity.Equipment;
+import com.festapp.dashboard.equipment.repository.EquipmentRepository;
 import com.festapp.dashboard.telemetry.dto.SensorDataPayload;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -35,6 +37,9 @@ class RealTimeDataServiceTest {
 
     @Mock
     private SensorHistoryService sensorHistoryService;
+
+    @Mock
+    private EquipmentRepository equipmentRepository;
 
     @InjectMocks
     private RealTimeDataService realTimeDataService;
@@ -96,6 +101,27 @@ class RealTimeDataServiceTest {
         assertThat(processed).isTrue();
         verify(messagingTemplate).convertAndSend(eq("/topic/equipment/CVD-01"), eq(payload));
         verify(messagingTemplate).convertAndSend(eq("/topic/equipment-id/10"), eq(payload));
+    }
+
+    @Test
+    @DisplayName("장비명만 있는 telemetry는 같은 이름의 모든 장비 ID snapshot과 topic을 갱신한다")
+    void legacyNameOnlyTelemetryUpdatesAllMatchingEquipmentIds() {
+        SensorDataPayload payload = payload(null, "CVD-01");
+        Equipment first = Equipment.builder().equipmentId(10L).equipmentName("CVD-01").build();
+        Equipment second = Equipment.builder().equipmentId(11L).equipmentName("CVD-01").build();
+        when(sensorHistoryService.persistTelemetryPayload(payload)).thenReturn(true);
+        when(redisTemplate.opsForValue()).thenReturn(valueOperations);
+        when(equipmentRepository.findByEquipmentName("CVD-01")).thenReturn(List.of(first, second));
+
+        boolean processed = realTimeDataService.processSensorData(payload);
+
+        assertThat(processed).isTrue();
+        verify(valueOperations).set(eq("equipment:current:CVD-01"), eq(payload));
+        verify(valueOperations).set(eq("equipment:current:id:10"), any(SensorDataPayload.class));
+        verify(valueOperations).set(eq("equipment:current:id:11"), any(SensorDataPayload.class));
+        verify(messagingTemplate).convertAndSend(eq("/topic/equipment/CVD-01"), eq(payload));
+        verify(messagingTemplate).convertAndSend(eq("/topic/equipment-id/10"), any(SensorDataPayload.class));
+        verify(messagingTemplate).convertAndSend(eq("/topic/equipment-id/11"), any(SensorDataPayload.class));
     }
 
     private SensorDataPayload payload(Long equipmentEntityId, String equipmentId) {

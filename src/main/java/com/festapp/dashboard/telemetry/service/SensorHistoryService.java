@@ -66,9 +66,9 @@ public class SensorHistoryService {
 
     @Transactional
     public boolean persistTelemetryPayload(SensorDataPayload payload) {
-        Equipment equipment = resolveEquipment(payload);
+        List<Equipment> equipmentTargets = resolveEquipmentTargets(payload);
 
-        if (equipment == null) {
+        if (equipmentTargets.isEmpty()) {
             return false;
         }
 
@@ -77,41 +77,43 @@ public class SensorHistoryService {
             return true;
         }
 
-        for (SensorDataPayload.SensorDetails details : payload.getSensors()) {
-            Sensor sensor = resolveOrCreateSensor(equipment, details.getSensorId());
-            if (sensor == null) {
-                continue;
-            }
+        for (Equipment equipment : equipmentTargets) {
+            for (SensorDataPayload.SensorDetails details : payload.getSensors()) {
+                Sensor sensor = resolveOrCreateSensor(equipment, details.getSensorId());
+                if (sensor == null) {
+                    continue;
+                }
 
-            if (isNumericDataType(details.getDataType()) && details.getValue() instanceof Number number) {
-                sensorNumericHistoryRepository.save(
-                        SensorNumericHistory.builder()
-                                .sensor(sensor)
-                                .value(number.doubleValue())
-                                .dataType(details.getDataType())
-                                .unit(details.getUnit())
-                                .timestamp(recordedAt)
-                                .build()
-                );
-            } else {
-                sensorStringHistoryRepository.save(
-                        SensorStringHistory.builder()
-                                .sensor(sensor)
-                                .status(details.getValue() != null ? String.valueOf(details.getValue()) : payload.getStatus())
-                                .timestamp(recordedAt)
-                                .build()
-                );
+                if (isNumericDataType(details.getDataType()) && details.getValue() instanceof Number number) {
+                    sensorNumericHistoryRepository.save(
+                            SensorNumericHistory.builder()
+                                    .sensor(sensor)
+                                    .value(number.doubleValue())
+                                    .dataType(details.getDataType())
+                                    .unit(details.getUnit())
+                                    .timestamp(recordedAt)
+                                    .build()
+                    );
+                } else {
+                    sensorStringHistoryRepository.save(
+                            SensorStringHistory.builder()
+                                    .sensor(sensor)
+                                    .status(details.getValue() != null ? String.valueOf(details.getValue()) : payload.getStatus())
+                                    .timestamp(recordedAt)
+                                    .build()
+                    );
+                }
             }
         }
         return true;
     }
 
-    private Equipment resolveEquipment(SensorDataPayload payload) {
+    private List<Equipment> resolveEquipmentTargets(SensorDataPayload payload) {
         if (payload.getEquipmentEntityId() != null) {
             Equipment equipment = equipmentRepository.findById(payload.getEquipmentEntityId()).orElse(null);
             if (equipment == null) {
                 log.warn("Skipping telemetry persistence because equipmentEntityId is not registered: {}", payload.getEquipmentEntityId());
-                return null;
+                return List.of();
             }
             if (payload.getEquipmentId() != null
                     && !payload.getEquipmentId().isBlank()
@@ -121,29 +123,29 @@ public class SensorHistoryService {
                         payload.getEquipmentEntityId(),
                         payload.getEquipmentId()
                 );
-                return null;
+                return List.of();
             }
-            return equipment;
+            return List.of(equipment);
         }
 
         if (payload.getEquipmentId() == null || payload.getEquipmentId().isBlank()) {
             log.warn("Skipping telemetry persistence because equipment reference is missing");
-            return null;
+            return List.of();
         }
 
         List<Equipment> matches = equipmentRepository.findByEquipmentName(payload.getEquipmentId());
         if (matches.isEmpty()) {
             log.warn("Skipping telemetry persistence because equipment is not registered: {}", payload.getEquipmentId());
-            return null;
+            return List.of();
         }
         if (matches.size() > 1) {
-            log.warn(
-                    "Skipping telemetry persistence because equipmentId '{}' is ambiguous. Use equipmentEntityId instead.",
+            log.info(
+                    "Persisting name-only telemetry for {} equipment records named '{}'",
+                    matches.size(),
                     payload.getEquipmentId()
             );
-            return null;
         }
-        return matches.get(0);
+        return matches;
     }
 
     public List<SensorNumericHistoryResponse> getNumericHistory(Long userId, Long sensorId, LocalDateTime from, LocalDateTime to) {
