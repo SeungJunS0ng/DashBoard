@@ -20,6 +20,8 @@ public class DashboardResponse {
     private Long userId;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
+    private String shareToken;
+    private Boolean isPublic;
 
     public static DashboardResponse fromEntity(Dashboard dashboard) {
         return DashboardResponse.builder()
@@ -29,6 +31,8 @@ public class DashboardResponse {
                 .userId(dashboard.getUser().getUserId())
                 .createdAt(dashboard.getCreatedAt())
                 .updatedAt(dashboard.getUpdatedAt())
+                .shareToken(dashboard.getShareToken())
+                .isPublic(dashboard.getIsPublic())
                 .build();
     }
 }

@@ -38,6 +38,13 @@ public class Dashboard {
     @Column(name = "updated_at", nullable = false)
     private LocalDateTime updatedAt;
 
+    @Column(name = "share_token", unique = true, length = 36)
+    private String shareToken;
+
+    @Builder.Default
+    @Column(name = "is_public", nullable = false)
+    private Boolean isPublic = false;
+
     @PrePersist
     protected void onCreate() {
         LocalDateTime now = LocalDateTime.now();

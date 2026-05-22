@@ -68,4 +68,20 @@ public class DashboardController {
         dashboardService.deleteDashboard(SecurityContextHelper.getCurrentUserId(), dashboardId);
         return ResponseEntity.ok(ApiResponse.success("삭제 성공"));
     }
+
+    @PostMapping("/{dashboardId}/share/enable")
+    @PreAuthorize("isAuthenticated()")
+    @Operation(summary = "대시보드 공유 활성화", description = "대시보드를 외부에 공개할 수 있는 UUID 토큰 링크를 활급하고 공개 설정합니다.")
+    public ResponseEntity<ApiResponse<DashboardResponse>> enableShare(@PathVariable Long dashboardId) {
+        DashboardResponse response = dashboardService.enableShare(SecurityContextHelper.getCurrentUserId(), dashboardId);
+        return ResponseEntity.ok(ApiResponse.success("공유 활성화 성공", response));
+    }
+
+    @PostMapping("/{dashboardId}/share/disable")
+    @PreAuthorize("isAuthenticated()")
+    @Operation(summary = "대시보드 공유 비활성화", description = "대시보드 공유 링크를 해제하고 비공개 설정합니다.")
+    public ResponseEntity<ApiResponse<DashboardResponse>> disableShare(@PathVariable Long dashboardId) {
+        DashboardResponse response = dashboardService.disableShare(SecurityContextHelper.getCurrentUserId(), dashboardId);
+        return ResponseEntity.ok(ApiResponse.success("공유 비활성화 성공", response));
+    }
 }

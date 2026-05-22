@@ -20,6 +20,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
@@ -83,6 +84,30 @@ public class DashboardService {
 
         equipmentRepository.deleteAllInBatch(equipment);
         dashboardRepository.delete(dashboard);
+    }
+
+    public DashboardResponse enableShare(Long userId, Long dashboardId) {
+        Dashboard dashboard = getDashboardOrThrow(userId, dashboardId);
+        dashboard.setShareToken(UUID.randomUUID().toString());
+        dashboard.setIsPublic(true);
+        return DashboardResponse.fromEntity(dashboardRepository.save(dashboard));
+    }
+
+    public DashboardResponse disableShare(Long userId, Long dashboardId) {
+        Dashboard dashboard = getDashboardOrThrow(userId, dashboardId);
+        dashboard.setShareToken(null);
+        dashboard.setIsPublic(false);
+        return DashboardResponse.fromEntity(dashboardRepository.save(dashboard));
+    }
+
+    @Transactional(readOnly = true)
+    public DashboardResponse getPublicDashboard(String shareToken) {
+        Dashboard dashboard = dashboardRepository.findByShareToken(shareToken)
+                .orElseThrow(() -> new ResourceNotFoundException(ErrorCode.DASHBOARD_NOT_FOUND));
+        if (!Boolean.TRUE.equals(dashboard.getIsPublic())) {
+            throw new ResourceNotFoundException(ErrorCode.DASHBOARD_NOT_FOUND);
+        }
+        return DashboardResponse.fromEntity(dashboard);
     }
 
     private Dashboard getDashboardOrThrow(Long userId, Long dashboardId) {

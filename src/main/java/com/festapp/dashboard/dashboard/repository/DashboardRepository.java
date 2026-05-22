@@ -13,4 +13,6 @@ public interface DashboardRepository extends JpaRepository<Dashboard, Long> {
     Optional<Dashboard> findByDashboardIdAndUserUserId(Long dashboardId, Long userId);
 
     Optional<Dashboard> findFirstByUserUserIdOrderByDashboardIdAsc(Long userId);
+
+    Optional<Dashboard> findByShareToken(String shareToken);
 }
