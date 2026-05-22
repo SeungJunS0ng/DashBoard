@@ -15,11 +15,12 @@ public class UserCreateRequest {
 
     @NotBlank(message = "사용자명은 필수입니다")
     @Size(min = 3, max = 50, message = "사용자명은 3자 이상 50자 이하여야 합니다")
-    @Pattern(regexp = "^[a-zA-Z0-9_-]+$", message = "사용자명은 영문, 숫자, _, -만 사용 가능합니다")
+    @Pattern(regexp = "^[a-z0-9_-]+$", message = "사용자명은 영문 소문자, 숫자, _, -만 사용 가능합니다")
     private String username;
 
     @NotBlank(message = "이메일은 필수입니다")
     @Email(message = "유효한 이메일 형식이어야 합니다")
+    @Pattern(regexp = "^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$", message = "유효한 이메일 형식이어야 합니다")
     @Size(max = 100, message = "이메일은 100자 이하여야 합니다")
     private String email;
 

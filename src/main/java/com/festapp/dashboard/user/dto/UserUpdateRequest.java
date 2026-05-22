@@ -14,6 +14,7 @@ import lombok.NoArgsConstructor;
 public class UserUpdateRequest {
 
     @Email(message = "유효한 이메일 형식이어야 합니다")
+    @Pattern(regexp = "^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$", message = "유효한 이메일 형식이어야 합니다")
     @Size(max = 100, message = "Email은 100자 이하여야 합니다")
     private String email;
 
