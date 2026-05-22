@@ -21,6 +21,12 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.UUID;
+import org.springframework.data.redis.core.RedisTemplate;
+import com.festapp.dashboard.dashboard.dto.PublicDashboardResponse;
+import com.festapp.dashboard.dashboard.widget.dto.WidgetResponseDto;
+import com.festapp.dashboard.dashboard.widget.entity.DashboardWidget;
+import com.festapp.dashboard.equipment.dto.EquipmentCurrentResponse;
+import com.festapp.dashboard.telemetry.dto.SensorDataPayload;
 
 @Service
 @RequiredArgsConstructor
@@ -34,6 +40,7 @@ public class DashboardService {
     private final SensorNumericHistoryRepository sensorNumericHistoryRepository;
     private final SensorStringHistoryRepository sensorStringHistoryRepository;
     private final DashboardWidgetRepository dashboardWidgetRepository;
+    private final RedisTemplate<String, Object> redisTemplate;
 
     public DashboardResponse createDashboard(Long userId, DashboardRequest request) {
         User user = getUserOrThrow(userId);
@@ -101,13 +108,36 @@ public class DashboardService {
     }
 
     @Transactional(readOnly = true)
-    public DashboardResponse getPublicDashboard(String shareToken) {
+    public PublicDashboardResponse getPublicDashboard(String shareToken) {
         Dashboard dashboard = dashboardRepository.findByShareToken(shareToken)
                 .orElseThrow(() -> new ResourceNotFoundException(ErrorCode.DASHBOARD_NOT_FOUND));
         if (!Boolean.TRUE.equals(dashboard.getIsPublic())) {
             throw new ResourceNotFoundException(ErrorCode.DASHBOARD_NOT_FOUND);
         }
-        return DashboardResponse.fromEntity(dashboard);
+
+        Long dashboardId = dashboard.getDashboardId();
+
+        // 1. 위젯 목록 조회 및 변환
+        List<WidgetResponseDto> widgets = dashboardWidgetRepository.findByDashboardDashboardIdOrderByWidgetIdAsc(dashboardId)
+                .stream()
+                .map(WidgetResponseDto::fromEntity)
+                .toList();
+
+        // 2. 장비 목록 조회 및 실시간 데이터(Redis) 매핑
+        List<EquipmentCurrentResponse> equipmentCurrent = equipmentRepository.findByDashboardDashboardIdOrderByEquipmentIdAsc(dashboardId)
+                .stream()
+                .map(equipment -> EquipmentCurrentResponse.fromEntity(equipment, getCurrentPayload(equipment)))
+                .toList();
+
+        return PublicDashboardResponse.of(dashboard, widgets, equipmentCurrent);
+    }
+
+    private SensorDataPayload getCurrentPayload(Equipment equipment) {
+        Object cached = redisTemplate.opsForValue().get("equipment:current:id:" + equipment.getEquipmentId());
+        if (!(cached instanceof SensorDataPayload)) {
+            cached = redisTemplate.opsForValue().get("equipment:current:" + equipment.getEquipmentName());
+        }
+        return cached instanceof SensorDataPayload payload ? payload : null;
     }
 
     private Dashboard getDashboardOrThrow(Long userId, Long dashboardId) {

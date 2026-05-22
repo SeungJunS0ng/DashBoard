@@ -137,7 +137,9 @@ public class DashboardShareIntegrationTest {
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.data.dashboardName").value("My Shared Dashboard"))
                 .andExpect(jsonPath("$.data.isPublic").value(true))
-                .andExpect(jsonPath("$.data.shareToken").value(shareToken));
+                .andExpect(jsonPath("$.data.shareToken").value(shareToken))
+                .andExpect(jsonPath("$.data.widgets").isArray())
+                .andExpect(jsonPath("$.data.equipmentCurrent").isArray());
 
         // [Step 4] 대시보드 공유 비활성화
         mockMvc.perform(post("/api/dashboards/" + testDashboardId + "/share/disable")

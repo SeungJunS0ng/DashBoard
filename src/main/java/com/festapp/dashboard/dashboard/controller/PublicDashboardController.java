@@ -1,7 +1,7 @@
 package com.festapp.dashboard.dashboard.controller;
 
 import com.festapp.dashboard.common.dto.ApiResponse;
-import com.festapp.dashboard.dashboard.dto.DashboardResponse;
+import com.festapp.dashboard.dashboard.dto.PublicDashboardResponse;
 import com.festapp.dashboard.dashboard.service.DashboardService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -22,8 +22,8 @@ public class PublicDashboardController {
 
     @GetMapping
     @Operation(summary = "공유 대시보드 단건 조회", description = "비로그인 외부 사용자가 유효한 토큰(UUID)을 이용하여 대시보드 상세 구조를 조회합니다.")
-    public ResponseEntity<ApiResponse<DashboardResponse>> getPublicDashboard(@RequestParam String token) {
-        DashboardResponse response = dashboardService.getPublicDashboard(token);
+    public ResponseEntity<ApiResponse<PublicDashboardResponse>> getPublicDashboard(@RequestParam String token) {
+        PublicDashboardResponse response = dashboardService.getPublicDashboard(token);
         return ResponseEntity.ok(ApiResponse.success("공유 대시보드 조회 성공", response));
     }
 }
