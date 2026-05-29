@@ -69,6 +69,11 @@ Thumbs.db
 .env.local
 .env.*.local
 
+### MCP Server ###
+mcp-server/node_modules/
+mcp-server/dist/
+mcp-server/.env
+
 ### Application Configuration ###
 src/main/resources/application.yml
 src/main/resources/application-*.yml
